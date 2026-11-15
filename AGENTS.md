@@ -1,3 +1,7 @@
+# Development workspace
+
+Use the primary checkout at `/Users/dorck/self-projects/MyDashboard` on `main` for subsequent development, unless the user requests another branch or worktree.
+
 # Design contract
 
 For feature iterations or substantial bugs, use the installed `to-tickets` skill and follow `docs/agents/issue-tracker.md` for GitHub issue numbering, parent/child relationships, dependencies, and progress. Small fixes use the exception defined there.

@@ -56,7 +56,12 @@ import {
 } from './storyboard'
 import { snapshotReference } from './references'
 import { createWorkflowAudio } from './audio'
-import { audioFeedback, audioCorrectionPrompt, waitForAudioTasks } from './audio-correction'
+import {
+  audioFeedback,
+  audioCorrectionPrompt,
+  validateTrackAudioCorrection,
+  waitForAudioTasks,
+} from './audio-correction'
 import { renderWorkflow } from './render'
 import {
   motionPrompt,
@@ -908,24 +913,28 @@ export class VideoWorkflowService {
           const corrections: Record<string, AudioCorrection> = {}
           if (audioModification && audioAgent) {
             for (const targetId of audioTargets) {
+              const targetTrack = currentAudio!.tracks.find((track) => track.file.id === targetId)!
               phase('AI 正在根据修改意见调整读音与停顿')
               const plan = await runAgent(
                 audioAgent,
                 runtime,
                 cwd,
-                audioCorrectionPrompt(
-                  audioProject,
-                  currentAudio!.tracks.find((track) => track.file.id === targetId)!,
-                  audioModification,
-                ),
+                audioCorrectionPrompt(targetTrack, audioModification),
                 controller.signal,
                 { timeout: 180000, onProgress: phase },
               )
               controller.signal.throwIfAborted()
+              const validated = validateAudioCorrectionPlan(plan)
+              const pronunciationTargets = validateTrackAudioCorrection(
+                targetTrack,
+                validated,
+                audioModification,
+              )
               const correction = {
-                ...validateAudioCorrectionPlan(plan),
+                ...validated,
                 feedback: audioModification,
                 executor: audioAgent,
+                ...(pronunciationTargets.length ? { pronunciationTargets } : {}),
               }
               corrections[targetId] = correction
               phase(`AI 已调整合成输入，开始重新生成配音 · ${correction.summary}`)

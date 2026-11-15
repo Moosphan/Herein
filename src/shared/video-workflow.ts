@@ -141,6 +141,7 @@ export interface AudioCorrectionPlan {
 export interface AudioCorrection extends AudioCorrectionPlan {
   feedback: string
   executor: WorkflowAgent
+  pronunciationTargets?: string[]
 }
 export function validateAudioCorrectionPlan(value: unknown): AudioCorrectionPlan {
   const input = record(value)
@@ -757,10 +758,22 @@ export function validatePayload<Stage extends VideoStage>(
         if (track.correction !== undefined) {
           const data = record(track.correction)
           if (!isWorkflowAgent(data.executor)) throw new Error('配音修改执行器无效')
+          if (
+            data.pronunciationTargets !== undefined &&
+            (!Array.isArray(data.pronunciationTargets) ||
+              data.pronunciationTargets.length > 1200 ||
+              data.pronunciationTargets.some(
+                (name) => typeof name !== 'string' || !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name),
+              ))
+          )
+            throw new Error('读音调整名称无效')
           correction = {
             ...validateAudioCorrectionPlan(data),
             feedback: text(data.feedback, '配音修改意见', 5000),
             executor: data.executor,
+            ...(data.pronunciationTargets !== undefined
+              ? { pronunciationTargets: data.pronunciationTargets as string[] }
+              : {}),
           }
         }
         return {

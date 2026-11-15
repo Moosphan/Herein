@@ -38,6 +38,12 @@ import {
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { WorkflowFiles } from '../src/main/services/video-workflow/files'
+import {
+  audioCorrectionContext,
+  audioCorrectionPrompt,
+  validateAudioCorrectionScope,
+  validateTrackAudioCorrection,
+} from '../src/main/services/video-workflow/audio-correction'
 import { workflowCommand } from '../src/main/services/video-workflow/process'
 import { publicIPv4 } from '../src/main/services/video-workflow/references'
 import {
@@ -2847,7 +2853,8 @@ test('single-track regeneration replaces only the selected chunk and preserves t
           plan.parts.map((part) => part.text),
         )
         assert.match(readFileSync(capture, 'utf8'), /KSP 按字母读/)
-        assert.match(readFileSync(capture, 'utf8'), /读音与停顿/)
+        assert.match(readFileSync(capture, 'utf8'), /修改范围严格限于本段用户明确提出的问题/)
+        assert.ok(!readFileSync(capture, 'utf8').includes('完整分镜口播'))
         assert.equal(repository.job(job.id)?.operation?.feedback, request.audioFeedback)
       }
       if (!correction) {
@@ -5427,4 +5434,302 @@ test('active audio modifications remain visible after more than one hundred newe
   } finally {
     db.close()
   }
+})
+
+test('tail-only audio feedback rejects unrelated identifier transliterations before synthesis', async () => {
+  const { db, repository, state: initial } = visualFixture()
+  const root = mkdtempSync(join(tmpdir(), 'audio-correction-scope-'))
+  const voice = new VoiceoverService(root, db, join(root, 'worker.py'))
+  const service = new VideoWorkflowService(root, db, () => voice)
+  try {
+    const text = '给 User 添加 JsonClass 注解。处理器生成 UserJsonAdapter，到 KSP 目录核对文件。'
+    const source = join(root, 'source.wav')
+    await workflowCommand(
+      service.runtime.get().ffmpegPath,
+      [
+        '-v',
+        'error',
+        '-f',
+        'lavfi',
+        '-i',
+        'sine=frequency=440:duration=0.15',
+        '-ar',
+        '48000',
+        source,
+      ],
+      { cwd: root, timeout: 10000 },
+    )
+    const file = await service.files.import(initial.id, source)
+    const project = repository.save(
+      initial.id,
+      'audio',
+      {
+        tracks: [{ sceneId: 'one', text, file, duration: 0.15 }],
+        file,
+        subtitles: await service.files.write(initial.id, text, '.srt'),
+        duration: 0.15,
+      },
+      initial.revision,
+      randomUUID(),
+    )
+    const plan = {
+      summary: '修复尾音并转写术语',
+      parts: [
+        {
+          text: '给优泽添加杰森、克拉斯注解。处理器生成优泽、杰森、阿达普特，到凯、艾斯、皮目录核对文件。',
+          pauseAfterMs: 700,
+        },
+      ],
+    }
+    const script = join(root, 'fake-codex')
+    writeFileSync(
+      script,
+      `#!/usr/bin/env node
+const fs = require('node:fs')
+if (process.argv[2] === 'mcp') {
+  process.stdout.write('[]')
+  process.exit(0)
+}
+process.stdin.resume()
+process.stdin.on('end', () => {
+  const output = process.argv[process.argv.indexOf('--output-last-message') + 1]
+  fs.writeFileSync(output, ${JSON.stringify(JSON.stringify(plan))})
+})
+`,
+    )
+    chmodSync(script, 0o755)
+    service.runtime.set({ codexPath: script })
+    let synthesized = false
+    voice.create = async () => {
+      synthesized = true
+      throw new Error('unexpected synthesis')
+    }
+    const job = await service.generate({
+      projectId: project.id,
+      stage: 'audio',
+      executor: 'template',
+      agentExecutor: 'codex',
+      expectedRevision: project.revision,
+      requestId: randomUUID(),
+      audioTrackId: file.id,
+      audioFeedback: '句尾的核对文件的“件”没读完就截断了，需要优化',
+      voice: { engine: 'edge', voiceId: 'zh-CN-XiaoxiaoNeural', options: {} },
+    })
+    for (let i = 0; i < 200 && repository.job(job.id)?.state === 'running'; i++)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    assert.equal(repository.job(job.id)?.state, 'failed')
+    assert.match(repository.job(job.id)?.error ?? '', /未指定.*名称|名称.*未指定/)
+    assert.equal(
+      synthesized,
+      false,
+      'out-of-scope rewrites must be caught before creating a TTS job',
+    )
+    assert.equal(repository.get(project.id).stages.audio?.id, project.stages.audio?.id)
+    const legacy = repository.save(
+      project.id,
+      'audio',
+      {
+        ...stageValue(project, 'audio')!,
+        tracks: [
+          {
+            sceneId: 'one',
+            text,
+            file,
+            duration: 0.15,
+            correction: {
+              ...plan,
+              feedback: '句尾不要截断',
+              executor: 'codex',
+            },
+          },
+        ],
+      },
+      repository.get(project.id).revision,
+      randomUUID(),
+    )
+    const synthesisInputs: string[] = []
+    voice.create = async (input) => {
+      synthesisInputs.push(resolveVoiceRequest(input).text)
+      throw new Error('stop after capturing synthesis input')
+    }
+    const retry = await service.generate({
+      projectId: project.id,
+      stage: 'audio',
+      executor: 'template',
+      expectedRevision: legacy.revision,
+      requestId: randomUUID(),
+      audioTrackId: file.id,
+      voice: { engine: 'edge', voiceId: 'zh-CN-XiaoxiaoNeural', options: {} },
+    })
+    for (let attempt = 0; attempt < 200 && repository.job(retry.id)?.state === 'running'; attempt++)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    assert.equal(repository.job(retry.id)?.state, 'failed')
+    assert.deepEqual(
+      synthesisInputs,
+      [text],
+      'ordinary regeneration also discards unsafe legacy readings',
+    )
+    assert.equal(repository.get(project.id).stages.audio?.id, legacy.stages.audio?.id)
+  } finally {
+    await service.dispose()
+    await voice.dispose()
+    db.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('audio correction scope isolates named functions and preserves other identifier occurrences', () => {
+  const original = '取得 User 的适配器，调用 toJson，把对象转成 JSON。再次使用 User。'
+  const plan = (text: string) => ({ summary: '调整读音', parts: [{ text, pauseAfterMs: 300 }] })
+  assert.doesNotThrow(() =>
+    validateAudioCorrectionScope(
+      original,
+      plan('取得 User 的适配器，调用 to Json，把对象转成 JSON。再次使用 User。'),
+      ['toJson'],
+    ),
+  )
+  for (const changed of [
+    '取得优泽的适配器，调用 to Json，把对象转成 JSON。再次使用 User。',
+    '取得 User 的适配器，调用 to JSON，把对象转成杰森。再次使用 User。',
+    '取得 User 的适配器，调用 to Json，把对象转成 JSON。再次使用优泽。',
+    '取得 User 的适配器，调用 to Json，把对象转成 JSONParse。再次使用 User。',
+  ])
+    assert.throws(
+      () => validateAudioCorrectionScope(original, plan(changed), ['toJson']),
+      /未指定的名称/,
+    )
+  assert.throws(
+    () => validateAudioCorrectionScope('调用 UserJsonAdapter。', plan('调用优泽。'), ['User']),
+    /UserJsonAdapter/,
+  )
+  assert.doesNotThrow(() =>
+    validateAudioCorrectionScope('重新使用 User。', plan('从新使用 User。'), []),
+  )
+  assert.throws(
+    () =>
+      validateAudioCorrectionScope(
+        '调用 toJson。',
+        {
+          summary: '拆分子段',
+          parts: [
+            { text: '调用 to', pauseAfterMs: 200 },
+            { text: 'Json。', pauseAfterMs: 200 },
+          ],
+        },
+        [],
+      ),
+    /toJson/,
+  )
+})
+
+test('audio correction context drops unsafe legacy readings and retains authorized per-track history', () => {
+  const track = {
+    sceneId: 'one',
+    text: '取得 User，调用 toJson，转成 JSON。',
+    duration: 1,
+    file: {
+      id: randomUUID(),
+      path: `media/video-workflow/${randomUUID()}/audio.wav`,
+      sha256: 'a'.repeat(64),
+      size: 12,
+      mime: 'audio/wav',
+    },
+  }
+  const unsafe = {
+    ...track,
+    correction: {
+      summary: '转写名称',
+      feedback: '句尾不要截断',
+      executor: 'codex' as const,
+      parts: [{ text: '取得优泽，调用图杰森，转成杰森。', pauseAfterMs: 700 }],
+    },
+  }
+  const context = audioCorrectionContext(unsafe, 'toJson 拆开读，User 和 JSON 保持不变')
+  assert.equal(context.previous, undefined)
+  assert.equal(context.discardedPrevious, true)
+  assert.deepEqual(context.pronunciationTargets, ['toJson'])
+  const prompt = audioCorrectionPrompt(unsafe, 'toJson 拆开读')
+  assert.match(prompt, /此前合成调整 null/)
+  assert.ok(!prompt.includes('取得优泽'))
+
+  const safe = {
+    ...track,
+    correction: {
+      summary: '函数名拆词',
+      feedback: 'toJson 拆开读',
+      executor: 'codex' as const,
+      parts: [{ text: '取得 User，调用 to Json，转成 JSON。', pauseAfterMs: 300 }],
+    },
+  }
+  const next = audioCorrectionContext(safe, '句尾不要截断')
+  assert.deepEqual(next.previous, safe.correction)
+  assert.deepEqual(next.pronunciationTargets, ['toJson'])
+  assert.throws(
+    () =>
+      validateTrackAudioCorrection(
+        safe,
+        {
+          summary: '修复尾音',
+          parts: [{ text: '取得 User，调用图杰森，转成 JSON。', pauseAfterMs: 700 }],
+        },
+        '句尾不要截断',
+      ),
+    /未指定的名称/,
+  )
+  assert.deepEqual(
+    validateTrackAudioCorrection(
+      safe,
+      {
+        ...safe.correction,
+        parts: [{ ...safe.correction.parts[0], pauseAfterMs: 700 }],
+      },
+      '句尾不要截断',
+    ),
+    ['toJson'],
+  )
+  const correction = {
+    ...safe.correction,
+    feedback: '句尾不要截断',
+    pronunciationTargets: next.pronunciationTargets,
+  }
+  const saved = validatePayload('audio', {
+    file: track.file,
+    subtitles: track.file,
+    duration: 1,
+    tracks: [{ ...track, correction }],
+  })
+  assert.deepEqual(saved.tracks[0].correction, correction)
+  assert.deepEqual(audioCorrectionContext(saved.tracks[0], '再多停顿一点').pronunciationTargets, [
+    'toJson',
+  ])
+  assert.deepEqual(audioCorrectionContext(track, '所有英文名称按字母读').pronunciationTargets, [
+    'User',
+    'toJson',
+    'JSON',
+  ])
+  assert.deepEqual(
+    audioCorrectionContext(track, 'User 不要改，toJson 拆开读').pronunciationTargets,
+    ['toJson'],
+  )
+  assert.deepEqual(
+    audioCorrectionContext(track, 'toJson拆开读其他名称不要改').pronunciationTargets,
+    ['toJson'],
+  )
+  assert.deepEqual(
+    audioCorrectionContext(track, 'split toJson but keep User unchanged').pronunciationTargets,
+    ['toJson'],
+  )
+  assert.deepEqual(
+    audioCorrectionContext({ ...track, text: '使用 UserJsonAdapter。' }, 'User 拆开读')
+      .pronunciationTargets,
+    [],
+  )
+  assert.throws(
+    () =>
+      validatePayload('audio', {
+        ...saved,
+        tracks: [{ ...track, correction: { ...correction, pronunciationTargets: ['User、JSON'] } }],
+      }),
+    /读音调整名称无效/,
+  )
 })

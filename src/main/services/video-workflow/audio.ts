@@ -17,6 +17,7 @@ import type { VoiceoverService } from '../voiceover/voiceover-service'
 import { managedPath } from '../voiceover/media'
 import { WorkflowFiles } from './files'
 import { workflowCommand } from './process'
+import { audioCorrectionContext } from './audio-correction'
 
 export function workflowVoiceSeed(
   baseSeed: number,
@@ -221,7 +222,7 @@ export async function createWorkflowAudio(input: {
     const correction =
       (sourceTrack && input.corrections?.[sourceTrack.file.id]) ??
       requestedCorrection ??
-      sourceTrack?.correction
+      (sourceTrack && audioCorrectionContext(sourceTrack, '').previous)
     const parts = correction ? correction.parts : [{ text, pauseAfterMs: 0 }]
     const partPaths: string[] = []
     for (const [partIndex, part] of parts.entries()) {

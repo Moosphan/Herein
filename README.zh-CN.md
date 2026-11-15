@@ -1,10 +1,14 @@
 <p align="center">
-  <img src="./assets/app-logo.svg" alt="MyDashboard" width="128" />
+  <img
+    src="./assets/readme-banners/herein-02-threads.png"
+    alt="Herein · 此间 — 安放所思，生长所愿。"
+    width="100%"
+  />
 </p>
 
-<h1 align="center">MyDashboard</h1>
+<h1 align="center">Herein · 此间</h1>
 
-<p align="center"><strong>本地优先的桌面生产力工作空间</strong></p>
+<p align="center"><strong>所思所行，皆在此间。</strong></p>
 
 <p align="center">
   <img src="./assets/badges/license.svg" alt="Apache 2.0" />
@@ -24,18 +28,19 @@
 
 ## 项目简介
 
-MyDashboard 是一款基于 Electron 的桌面应用，试图把项目管理、写作、
-媒体素材、RSS 阅读、社交洞察和 AI 工具整合进同一个本地优先工作空间。
-当前实现以 SQLite 和本地文件存储为基础，默认不依赖云端账户和同步服务。
+Herein（此间）是一款本地优先的桌面工作空间，用来安放工作事务、日常生活
+和自媒体创作中的各种工作流。它基于 Electron，将项目看板、写作、视频与音频
+创作、RSS 阅读、社交洞察和 AI 工具汇聚于一处。项目、草稿与媒体素材通过
+SQLite 和本地文件保存在自己的电脑上。
 
 它目前仍然从作者自己的日常工作流中持续生长，因此产品方向会优先服务真实的
 个人使用场景。
 
 ## 这个项目解决什么问题
 
-很多个人工作流会分散在多个应用里：任务管理、写作、素材整理、信息订阅、
-社交数据查看，以及 AI 工具使用彼此割裂。MyDashboard 想做的是一个统一的
-桌面工作台，而不是一组松散的网页标签页。
+工作事务、生活安排和自媒体创作，会不断产生任务、资料、想法与作品。
+此间希望将这些内容安放在一个属于自己的桌面工作空间，通过项目看板、
+内容创作与信息整理，让不同工作流彼此连接。
 
 ## 核心能力
 
@@ -72,13 +77,24 @@ MyDashboard 是一款基于 Electron 的桌面应用，试图把项目管理、�
 
 ## 当前架构
 
-MyDashboard 当前是一个模块化 Electron 应用，内置 6 个功能模块：
+<p align="center">
+  <img
+    src="./assets/architecture/herein-layered-architecture.png"
+    alt="此间架构分层图，包含渲染模块、Preload 桥接、主进程 IPC 与业务服务、数据访问、本地存储及外部工具"
+    width="100%"
+  />
+</p>
+
+图中展示六层逻辑职责、对应的 Electron 进程边界，以及本地执行工具和外部服务的调用关系。
+
+Herein 当前是一个模块化 Electron 应用，内置 7 个功能模块：
 
 - `dashboard`
 - `writing`
 - `video`
 - `insights`
 - `ai-lab`
+- `toolbox`
 - `settings`
 
 模块启用状态由 [feature.config.ts](./feature.config.ts) 控制。
@@ -86,7 +102,7 @@ MyDashboard 当前是一个模块化 Electron 应用，内置 6 个功能模块�
 运行时结构遵循标准 Electron 分层：
 
 - **主进程**：数据库访问、后台服务、IPC 处理器与原生能力
-- **Preload 层**：类型化的 `electronAPI` 桥接
+- **Preload 层**：通过隔离的 `contextBridge` 暴露 `electronAPI` 与 `toolboxAPI`
 - **渲染进程**：基于 React 的工作空间界面
 
 仓库中还包含更大范围的插件化设计说明：

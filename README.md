@@ -1,10 +1,14 @@
 <p align="center">
-  <img src="./assets/app-logo.svg" alt="MyDashboard" width="128" />
+  <img
+    src="./assets/readme-banners/herein-02-threads.png"
+    alt="Herein · 此间 — 安放所思，生长所愿。"
+    width="100%"
+  />
 </p>
 
-<h1 align="center">MyDashboard</h1>
+<h1 align="center">Herein · 此间</h1>
 
-<p align="center"><strong>A local-first desktop productivity workspace</strong></p>
+<p align="center"><strong>所思所行，皆在此间。</strong></p>
 
 <p align="center">
   <img src="./assets/badges/license.svg" alt="Apache 2.0" />
@@ -24,10 +28,11 @@
 
 ## Overview
 
-MyDashboard is an Electron desktop app that brings projects, writing, media
-assets, RSS reading, social insights, and AI tooling into one local-first
-workspace. The app stores data on your machine with SQLite and file-based
-storage, so you can work without cloud accounts or external sync as a baseline.
+Herein (此间) is a local-first desktop workspace for your work, everyday life,
+and creative workflows. Built with Electron, it brings project boards, writing,
+video and audio creation, RSS reading, social insights, and AI tools together.
+Projects, drafts, and media assets are stored on your machine with SQLite and
+file-based storage.
 
 It is currently evolving from the author's own day-to-day workspace, which
 means the product direction is shaped by real personal workflows first.
@@ -37,24 +42,24 @@ means the product direction is shaped by real personal workflows first.
 <table>
   <tr>
     <td width="50%" align="center">
-      <img src="./docs/screenshots/dashboard-macos.png" alt="MyDashboard dashboard on macOS" width="100%" />
+      <img src="./docs/screenshots/dashboard-macos.png" alt="Herein dashboard on macOS" width="100%" />
       <br />
       <sub>Dashboard</sub>
     </td>
     <td width="50%" align="center">
-      <img src="./docs/screenshots/writing-macos.png" alt="MyDashboard Writing Studio on macOS" width="100%" />
+      <img src="./docs/screenshots/writing-macos.png" alt="Herein Writing Studio on macOS" width="100%" />
       <br />
       <sub>Writing Studio</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="./docs/screenshots/insights-macos.png" alt="MyDashboard Insights on macOS" width="100%" />
+      <img src="./docs/screenshots/insights-macos.png" alt="Herein Insights on macOS" width="100%" />
       <br />
       <sub>Insights</sub>
     </td>
     <td width="50%" align="center">
-      <img src="./docs/screenshots/ai-lab-macos.png" alt="MyDashboard AI Lab on macOS" width="100%" />
+      <img src="./docs/screenshots/ai-lab-macos.png" alt="Herein AI Lab on macOS" width="100%" />
       <br />
       <sub>AI Lab</sub>
     </td>
@@ -63,10 +68,10 @@ means the product direction is shaped by real personal workflows first.
 
 ## Why This Project Exists
 
-Many personal workflows are split across separate apps for task tracking,
-writing, reference collection, media management, feed reading, and AI tools.
-MyDashboard aims to make those workflows feel like one coherent desktop
-workspace instead of a loose collection of tabs and services.
+Work, everyday responsibilities, and independent content creation generate tasks,
+references, ideas, and finished work. Herein gives them a shared home on your
+desktop, connecting project boards, content creation, and information gathering
+so your workflows can build on one another.
 
 ## Key Capabilities
 
@@ -109,7 +114,7 @@ Install the optional Remotion CLI separately from Electron. On macOS:
 npm install --prefix "$HOME/Library/Application Support/my-dashboard/tools/remotion" --save-exact @remotion/cli@4.0.541 react@18.3.1 react-dom@18.3.1
 ```
 
-This location is detected automatically. Alternatively, configure an existing `@remotion/cli/remotion-cli.js` in **执行环境**, together with Node.js, FFmpeg and FFprobe. Chrome / Chromium can be selected explicitly; leaving the browser field empty lets Remotion obtain its own browser on first use. Remotion does not require HyperFrames to be installed. The CLI runs with one rendering worker to limit background memory pressure. Remotion has its own [license](https://github.com/remotion-dev/remotion/blob/main/LICENSE.md); it is not covered by MyDashboard's license.
+This location is detected automatically. Alternatively, configure an existing `@remotion/cli/remotion-cli.js` in **执行环境**, together with Node.js, FFmpeg and FFprobe. Chrome / Chromium can be selected explicitly; leaving the browser field empty lets Remotion obtain its own browser on first use. Remotion does not require HyperFrames to be installed. The CLI runs with one rendering worker to limit background memory pressure. Remotion has its own [license](https://github.com/remotion-dev/remotion/blob/main/LICENSE.md); it is not covered by Herein's license.
 
 Regression commands: `pnpm test:video-workflow`, `pnpm test:remotion:native`, `pnpm test:remotion:ui`, and `WORKFLOW_REMOTION_PATH=/absolute/path/to/remotion-cli.js pnpm test:remotion:render` / `pnpm test:remotion:native:render`. The render commands produce synthetic horizontal and vertical videos using the local CLI and browser.
 
@@ -139,7 +144,18 @@ Agent motion output accepts single CSS `transform` functions for numeric scaling
 
 ## Current Architecture
 
-MyDashboard currently ships as a modular Electron app with six built-in
+<p align="center">
+  <img
+    src="./assets/architecture/herein-layered-architecture.png"
+    alt="Herein layered architecture showing renderer modules, the preload bridge, main-process IPC and services, data access, local storage, and external tools"
+    width="100%"
+  />
+</p>
+
+The diagram shows six logical layers, their Electron process boundaries, and
+connections to local execution tools and external services.
+
+Herein currently ships as a modular Electron app with seven built-in
 feature modules:
 
 - `dashboard`
@@ -147,6 +163,7 @@ feature modules:
 - `video`
 - `insights`
 - `ai-lab`
+- `toolbox`
 - `settings`
 
 Feature enablement is controlled through
@@ -156,7 +173,8 @@ At runtime, the app follows a standard Electron split:
 
 - **Main process** for database access, background services, IPC handlers, and
   native integrations
-- **Preload layer** for the typed `electronAPI` bridge
+- **Preload layer** for the isolated `contextBridge` exposing `electronAPI` and
+  `toolboxAPI`
 - **Renderer** for the React-based workspace UI
 
 The codebase also includes design and architecture notes for a broader plugin

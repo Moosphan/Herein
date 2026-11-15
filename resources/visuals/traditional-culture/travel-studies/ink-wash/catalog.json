@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "kumquat-golden-branch",
+      "name": "金橘满枝",
+      "category": "color",
+      "theme": "金橘 / 橙金与深叶",
+      "note": "椭圆金橘由果梗悬挂，叶片深浅衬托实果，枝条连续承接。",
+      "svg": "kumquat-golden-branch.svg",
+      "png": "kumquat-golden-branch.png"
+    },
+    {
+      "id": "quince-fruit-fragrance",
+      "name": "木瓜垂香",
+      "category": "color",
+      "theme": "木瓜 / 杏黄与淡赭",
+      "note": "大果沿下行枝势分布，果柄与厚实果面相接，非特定栽培品种图谱。",
+      "svg": "quince-fruit-fragrance.svg",
+      "png": "quince-fruit-fragrance.png"
+    },
+    {
+      "id": "hypericum-golden-stamens",
+      "name": "金丝照石",
+      "category": "color",
+      "theme": "金丝桃 / 花金与青石",
+      "note": "五瓣黄花、放射长蕊与对生叶表现植物身份，石头压住右下。",
+      "svg": "hypericum-golden-stamens.svg",
+      "png": "hypericum-golden-stamens.png"
+    },
+    {
+      "id": "bleeding-heart-flowers",
+      "name": "荷包垂露",
+      "category": "color",
+      "theme": "荷包牡丹 / 胭脂与浅白",
+      "note": "拱形花轴上心形花与浅色内瓣下垂，复叶另组，花梗接回花轴。",
+      "svg": "bleeding-heart-flowers.svg",
+      "png": "bleeding-heart-flowers.png"
+    },
+    {
+      "id": "cicada-plane-tree-leaf",
+      "name": "梧叶鸣蝉",
+      "category": "figures",
+      "theme": "夏蝉 / 青褐与薄翅",
+      "note": "实体头胸腹、六足和叠翅分层，昆虫停栖枝面，非物种解剖复原。",
+      "svg": "cicada-plane-tree-leaf.svg",
+      "png": "cicada-plane-tree-leaf.png"
+    },
+    {
+      "id": "butterflies-dianthus",
+      "name": "石竹双蝶",
+      "category": "figures",
+      "theme": "蝶花 / 金橙与藕粉",
+      "note": "石竹有细叶和裂瓣，双蝶改变体态与近远翼形，保留花鸟留白。",
+      "svg": "butterflies-dianthus.svg",
+      "png": "butterflies-dianthus.png"
+    },
+    {
+      "id": "bamboo-brush-pot",
+      "name": "笔筒清供",
+      "category": "color",
+      "theme": "文房 / 竹黄与墨色",
+      "note": "笔杆插入有内壁的竹筒，笔毫聚束收锋，前筒壁遮住插入部分。",
+      "svg": "bamboo-brush-pot.svg",
+      "png": "bamboo-brush-pot.png"
+    },
+    {
+      "id": "scissors-ruler-brocade",
+      "name": "刀尺裁锦",
+      "category": "color",
+      "theme": "裁衣 / 靛锦与青铁",
+      "note": "双刃在共同枢轴交叠，指环真实镂空，剪刀与木尺置于布面。",
+      "svg": "scissors-ruler-brocade.svg",
+      "png": "scissors-ruler-brocade.png"
+    },
+    {
+      "id": "oil-paper-umbrella",
+      "name": "纸伞听雨",
+      "category": "color",
+      "theme": "纸伞 / 淡杏与朱梅",
+      "note": "纸面分瓣承接伞骨，中心与伞杆相接，装饰梅枝留在伞面内。",
+      "svg": "oil-paper-umbrella.svg",
+      "png": "oil-paper-umbrella.png"
+    },
+    {
+      "id": "rain-cape-conical-hat",
+      "name": "蓑笠江行",
+      "category": "color",
+      "theme": "雨具 / 草褐与竹黄",
+      "note": "蓑衣挂起，层叠草束随肩背下垂，斗笠有圆锥体积、口沿与系绳。",
+      "svg": "rain-cape-conical-hat.svg",
+      "png": "rain-cape-conical-hat.png"
+    },
+    {
+      "id": "thread-bound-books-case",
+      "name": "书函芸香",
+      "category": "color",
+      "theme": "书函 / 靛蓝与纸白",
+      "note": "线装册、书函与束带共享投影，纸页为实体材料，不写伪造书名。",
+      "svg": "thread-bound-books-case.svg",
+      "png": "thread-bound-books-case.png"
+    },
+    {
+      "id": "drum-stones-red-door",
+      "name": "石狮守庭",
+      "category": "ink",
+      "theme": "石狮 / 青灰石与朱门",
+      "note": "门庭雕兽以宽吻突目、压眉阔口、团块卷鬃、厚胸巨爪和层叠石座表现镇守感；绣球与幼狮区分雌雄，非活狮写生或特定文物复原。",
+      "svg": "drum-stones-red-door.svg",
+      "png": "drum-stones-red-door.png"
+    }
+  ]
+}

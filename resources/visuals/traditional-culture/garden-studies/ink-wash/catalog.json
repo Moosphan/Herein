@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "wisteria-cascade",
+      "name": "藤萝垂紫",
+      "category": "color",
+      "theme": "紫藤 / 老蔓与串花",
+      "note": "曲折老蔓承接长短不齐的花序，灰紫与新绿相映。",
+      "svg": "wisteria-cascade.svg",
+      "png": "wisteria-cascade.png"
+    },
+    {
+      "id": "persimmon-autumn",
+      "name": "柿染秋枝",
+      "category": "color",
+      "theme": "秋果 / 橙赭与枯叶",
+      "note": "柿果的萼、果柄和承重枝连续，橙红果面保留同色转暗。",
+      "svg": "persimmon-autumn.svg",
+      "png": "persimmon-autumn.png"
+    },
+    {
+      "id": "magnolia-spring",
+      "name": "辛夷照春",
+      "category": "color",
+      "theme": "木兰 / 粉白与虬枝",
+      "note": "大瓣木兰沿枝向舒展，实体浅瓣与透明花间留白分开。",
+      "svg": "magnolia-spring.svg",
+      "png": "magnolia-spring.png"
+    },
+    {
+      "id": "magpies-plum",
+      "name": "双鹊报春",
+      "category": "figures",
+      "theme": "喜鹊 / 长尾与梅枝",
+      "note": "两鹊改变俯仰与体量，黑白翼面、蓝灰长尾及扣枝足爪明确。",
+      "svg": "magpies-plum.svg",
+      "png": "magpies-plum.png"
+    },
+    {
+      "id": "rooster-dawn",
+      "name": "雄鸡司晨",
+      "category": "figures",
+      "theme": "雄鸡 / 金颈与墨尾",
+      "note": "昂首立姿、红冠、金褐颈羽与弧形尾羽构成主势，双足落地。",
+      "svg": "rooster-dawn.svg",
+      "png": "rooster-dawn.png"
+    },
+    {
+      "id": "geese-reed-water",
+      "name": "双鹅清波",
+      "category": "figures",
+      "theme": "白鹅 / 芦汀与水纹",
+      "note": "两鹅以白羽实体、连续颈身与背侧折翼表现游姿，江水保持透明。",
+      "svg": "geese-reed-water.svg",
+      "png": "geese-reed-water.png"
+    },
+    {
+      "id": "jade-ruyi",
+      "name": "玉意流云",
+      "category": "color",
+      "theme": "如意 / 青玉与绛绦",
+      "note": "云头、弯柄与绦结连续衔接，低对比青玉层次表现厚实温润。",
+      "svg": "jade-ruyi.svg",
+      "png": "jade-ruyi.png"
+    },
+    {
+      "id": "hairpins-comb",
+      "name": "簪梳凝香",
+      "category": "color",
+      "theme": "梳篦 / 玉簪与金花",
+      "note": "木梳疏齿与两支簪体交错，珠坠有挂接，花头和长针保持连接。",
+      "svg": "hairpins-comb.svg",
+      "png": "hairpins-comb.png"
+    },
+    {
+      "id": "celadon-pillow",
+      "name": "瓷枕清梦",
+      "category": "color",
+      "theme": "瓷枕 / 豆形与卷草",
+      "note": "枕面微凹、器壁与底缘连续，青瓷面内绘花枝，不以通透代替釉色。",
+      "svg": "celadon-pillow.svg",
+      "png": "celadon-pillow.png"
+    },
+    {
+      "id": "tea-basket-hat",
+      "name": "茶篓春采",
+      "category": "color",
+      "theme": "采茶 / 竹篓与箬笠",
+      "note": "提梁落到篓口两侧，编织随篓腹弯曲，箬笠叠放在前景。",
+      "svg": "tea-basket-hat.svg",
+      "png": "tea-basket-hat.png"
+    },
+    {
+      "id": "earthen-lamp-books",
+      "name": "陶灯书影",
+      "category": "color",
+      "theme": "灯火 / 陶盏与书册",
+      "note": "灯盘、灯柱与底座相接，灯芯伸出油盘边缘，书页与封面有厚度。",
+      "svg": "earthen-lamp-books.svg",
+      "png": "earthen-lamp-books.png"
+    },
+    {
+      "id": "waterside-pavilion",
+      "name": "柳岸水榭",
+      "category": "ink",
+      "theme": "园林 / 灰瓦与临水台",
+      "note": "细长披针柳叶随柔长垂枝向右飘拂，浓淡柳幕围合开敞水亭，梁柱落在低矮临水台基。",
+      "svg": "waterside-pavilion.svg",
+      "png": "waterside-pavilion.png"
+    }
+  ]
+}

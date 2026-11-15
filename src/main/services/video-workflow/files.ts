@@ -13,6 +13,7 @@ import { dirname, extname, join, relative, sep } from 'node:path'
 import { managedPath } from '../voiceover/media'
 import type { WorkflowFile } from '../../../shared/video-workflow'
 import { VideoWorkflowRepository } from '../../database/repositories/video-workflow-repository'
+import { NATIVE_MATERIAL_TYPES, NATIVE_MATERIAL_LIMITS } from '../../../shared/video-materials'
 
 export async function fileHash(path: string) {
   const hash = createHash('sha256')
@@ -38,6 +39,8 @@ const MIME: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
 }
 export class WorkflowFiles {
   constructor(
@@ -55,14 +58,17 @@ export class WorkflowFiles {
     extension = extname(source).toLowerCase(),
   ): Promise<WorkflowFile> {
     if (!MIME[extension] || !lstatSync(source).isFile() || lstatSync(source).isSymbolicLink())
-      throw new Error('仅支持普通 HTML、JSON、文本、音频、PNG 和 MP4 文件')
+      throw new Error('仅支持受管工程、文本、音频、图片、MP4 和字体普通文件')
     const size = statSync(source).size
+    const material = NATIVE_MATERIAL_TYPES[extension.slice(1) as keyof typeof NATIVE_MATERIAL_TYPES]
     if (
       size <= 0 ||
       size >
-        (['.mp4', '.wav', '.mp3', '.m4a', '.ogg', '.flac'].includes(extension)
-          ? 1024 * 1024 * 1024
-          : 4 * 1024 * 1024)
+        (material
+          ? NATIVE_MATERIAL_LIMITS[material[0]]
+          : ['.mp4', '.wav', '.mp3', '.m4a', '.ogg', '.flac'].includes(extension)
+            ? 1024 * 1024 * 1024
+            : 4 * 1024 * 1024)
     )
       throw new Error('文件为空或超出大小限制')
     this.repository.get(projectId)

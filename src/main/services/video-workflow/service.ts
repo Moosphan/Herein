@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import { productionRevision, productionSourceProject } from '../../../shared/video-production'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -38,7 +39,10 @@ import {
   isWorkflowAgent,
   isVideoRenderEngine,
   type VideoRenderEngine,
+  type StagePayloads,
   WORKFLOW_AGENT_LABELS,
+  validateAudioCorrectionPlan,
+  type AudioCorrection,
 } from '../../../shared/video-workflow'
 import type { VoiceoverService } from '../voiceover/voiceover-service'
 import { WorkflowFiles } from './files'
@@ -52,6 +56,7 @@ import {
 } from './storyboard'
 import { snapshotReference } from './references'
 import { createWorkflowAudio } from './audio'
+import { audioFeedback, audioCorrectionPrompt, waitForAudioTasks } from './audio-correction'
 import { renderWorkflow } from './render'
 import {
   motionPrompt,
@@ -72,6 +77,10 @@ import type { MusicSearchResult } from '../../../shared/video-workflow'
 import { importFinishedVideo } from './import-video'
 import { REMOTION_PUBLIC_FILE } from './remotion'
 import { nativeRevisionPrompt } from './remotion-native'
+import type { NativeAttemptOptions } from './remotion-repair'
+import { validateNativeMaterials, type NativeMaterial } from '../../../shared/video-materials'
+import { FrameInspection } from './frame-inspection'
+import { FrameCoverService } from './frame-cover'
 
 export interface WorkflowGeneration {
   projectId: string
@@ -90,9 +99,13 @@ export interface WorkflowGeneration {
   cover?: CoverGeneration
   copyFeedback?: string
   audioTrackId?: string
+  audioTrackIds?: string[]
+  audioFeedback?: string
   reuseNarration?: boolean
   music?: RenderMusic
+  musicOnly?: boolean
   renderEngine?: VideoRenderEngine
+  nativeMaterials?: NativeMaterial[]
 }
 function retainedRequirements(previous: string | undefined, feedback: string | undefined) {
   if (
@@ -107,6 +120,8 @@ export class VideoWorkflowService {
   readonly repository: VideoWorkflowRepository
   readonly files: WorkflowFiles
   readonly runtime: WorkflowRuntimeManager
+  readonly frameInspection: FrameInspection
+  readonly frameCovers: FrameCoverService
   readonly publishing: PlatformPublishingService
   readonly douyinPublishing: PlatformPublishingService
   private running = new Map<string, { controller: AbortController; promise: Promise<void> }>()
@@ -129,6 +144,10 @@ export class VideoWorkflowService {
     this.repository.recover()
     this.files = new WorkflowFiles(root, this.repository)
     this.runtime = new WorkflowRuntimeManager(root)
+    this.frameInspection = new FrameInspection(this.repository, this.files, () =>
+      this.runtime.get(),
+    )
+    this.frameCovers = new FrameCoverService(this.repository, this.files, () => this.runtime.get())
     this.publishing = new PlatformPublishingService(
       root,
       db,
@@ -212,7 +231,8 @@ export class VideoWorkflowService {
     for (const dependency of VIDEO_STAGES.slice(0, index + (includeCurrent ? 1 : 0)))
       if (project.stages[dependency])
         await this.files.verifyPayload(projectId, project.stages[dependency]!.payload)
-    if (stage === 'publish' && includeCurrent) await verifyCoverImages(project, this.files)
+    if (stage === 'publish' && includeCurrent)
+      await verifyCoverImages(project, this.files, this.runtime.get())
   }
   async save(
     projectId: string,
@@ -245,6 +265,7 @@ export class VideoWorkflowService {
           },
         },
         this.files,
+        this.runtime.get(),
       )
     }
     await this.verifyInputs(projectId, stage)
@@ -369,6 +390,24 @@ export class VideoWorkflowService {
       return this.notify(projectId)
     }
     await this.verifyInputs(projectId, stage, true)
+    if (stage === 'roughcut') {
+      const video = stageValue(project, 'roughcut')
+      if (
+        video &&
+        fingerprint(
+          video.compositionFiles.map((file, index) => [video.compositionNames[index], file.sha256]),
+        ) !== video.manifestHash
+      )
+        throw new Error('冻结工程指纹不一致')
+      this.repository.approveProduction(
+        projectId,
+        revisionId,
+        expected,
+        requestId,
+        typeof note === 'string' ? note : '',
+      )
+      return this.notify(projectId)
+    }
     if (stage === 'audio' && project.stages.audio?.status === 'stale') {
       if (project.revision !== expected || project.stages.audio.id !== revisionId)
         throw new Error('审核版本已发生变化，请刷新后重试')
@@ -423,28 +462,54 @@ export class VideoWorkflowService {
     )
       throw new Error('该步骤需要 CLI 或人工导入')
     const project = this.repository.get(input.projectId)
+    const productionProject = productionSourceProject(project)
+    const visibleVideo = productionRevision(project)?.payload as
+      | StagePayloads['roughcut']
+      | undefined
+    if (
+      input.musicOnly !== undefined &&
+      (input.musicOnly !== true ||
+        input.stage !== 'roughcut' ||
+        input.modification ||
+        input.motionPlanJobId ||
+        input.nativeMaterials ||
+        imports ||
+        !visibleVideo ||
+        visibleVideo.imported)
+    )
+      throw new Error('配乐修改仅用于已有视频制作版本')
     if (
       input.renderEngine !== undefined &&
       (!['roughcut', 'render'].includes(input.stage) || !isVideoRenderEngine(input.renderEngine))
     )
       throw new Error('请选择有效的视频合成引擎')
     if (input.stage === 'roughcut' || input.stage === 'render') {
-      const sourceEngine = stageValue(project, 'roughcut')?.renderEngine ?? 'hyperframes'
+      const sourceEngine = visibleVideo?.renderEngine ?? 'hyperframes'
       if (input.stage === 'render' && input.renderEngine && input.renderEngine !== sourceEngine)
         throw new Error('正式成片必须沿用粗剪的合成引擎；请先生成并审核对应引擎的粗剪')
       input = {
         ...input,
         renderEngine:
-          input.stage === 'render' ? sourceEngine : (input.renderEngine ?? sourceEngine),
+          input.stage === 'render' || input.musicOnly
+            ? sourceEngine
+            : (input.renderEngine ?? sourceEngine),
       }
     }
     if (isImportedVideo(project) && input.stage !== 'publish')
       throw new Error('外部成片项目仅支持发布资料和封面生成')
-    const music = input.music === undefined ? undefined : validateRenderMusic(input.music)
-    if (music && input.stage !== 'render') throw new Error('配乐设置仅用于正式成片阶段')
+    const music =
+      input.music === undefined
+        ? input.stage === 'roughcut' && !input.musicOnly
+          ? visibleVideo?.music
+          : undefined
+        : validateRenderMusic(input.music)
+    if (music && !['roughcut', 'render'].includes(input.stage))
+      throw new Error('配乐设置仅用于视频制作阶段')
     if (music) await this.files.verify(project.id, music.file)
     const motionProject =
-      input.modification || input.motionPlanJobId ? renderSourceProject(project) : project
+      input.modification || input.motionPlanJobId || input.musicOnly
+        ? renderSourceProject(productionProject)
+        : project
     const existingNarration = stageValue(project, 'narration')
     const storyboard = stageValue(project, 'storyboard')
     const motionStoryboard = stageValue(motionProject, 'storyboard')
@@ -477,19 +542,48 @@ export class VideoWorkflowService {
         throw new Error('分镜数量或顺序已变化，请先生成完整口播稿再进行单镜修改或沿用')
     }
     const previousAudio = stageValue(project, 'audio')
+    if (input.audioTrackIds !== undefined) {
+      if (
+        !Array.isArray(input.audioTrackIds) ||
+        !input.audioTrackIds.length ||
+        input.audioTrackIds.length > 600 ||
+        input.audioTrackId !== undefined ||
+        input.audioTrackIds.some((id) => typeof id !== 'string' || !id) ||
+        new Set(input.audioTrackIds).size !== input.audioTrackIds.length
+      )
+        throw new Error('请选择有效且不重复的配音片段')
+      input = {
+        ...input,
+        audioTrackId: input.audioTrackIds[0],
+        audioTrackIds: [...input.audioTrackIds],
+      }
+    }
+    const audioTargets = input.audioTrackIds ?? (input.audioTrackId ? [input.audioTrackId] : [])
+    if (audioTargets.length && input.voice)
+      input = { ...input, voice: { ...input.voice, options: { ...input.voice.options } } }
+    const audioModification = audioFeedback(input.audioFeedback)
+    if (audioModification && (input.stage !== 'audio' || !input.audioTrackId || imports))
+      throw new Error('配音修改意见仅用于配音阶段的单段重生成')
     if (
       input.audioTrackId !== undefined &&
       (input.stage !== 'audio' ||
         imports ||
         typeof input.audioTrackId !== 'string' ||
         project.stages.audio?.status === 'stale' ||
-        !previousAudio?.tracks.some((track) => track.file.id === input.audioTrackId))
+        audioTargets.some((id) => !previousAudio?.tracks.some((track) => track.file.id === id)))
     )
       throw new Error('请选择当前完整配音中的有效片段，单段重生成仅用于配音阶段')
+    const audioAgent = audioModification
+      ? selectWorkflowAgent(
+          this.runtime.get(),
+          input.agentExecutor ?? (isWorkflowAgent(input.executor) ? input.executor : undefined),
+        )
+      : undefined
     if (project.revision !== input.expectedRevision) throw new Error('项目已更新，请刷新后重试')
     if (!stageUnlocked(project, input.stage)) throw new Error('请先审核通过所有前置步骤')
     if (
       input.stage === 'roughcut' &&
+      !input.musicOnly &&
       !input.motionPlanJobId &&
       project.jobs.some(
         (job) =>
@@ -512,7 +606,12 @@ export class VideoWorkflowService {
         throw new Error('请在执行环境配置 Image2 脚本和 Bun 路径，再生成封面')
     }
     const feedback = input.stage === 'copy' ? copyFeedback(input.copyFeedback) : undefined
-    await this.verifyInputs(project.id, input.stage, Boolean(input.audioTrackId), motionProject)
+    await this.verifyInputs(
+      project.id,
+      input.stage,
+      Boolean(input.audioTrackId) || input.musicOnly,
+      motionProject,
+    )
     if ((input.modification || input.motionPlanJobId) && input.stage !== 'roughcut')
       throw new Error('修改计划仅用于粗剪')
     if (input.modification && input.motionPlanJobId) throw new Error('请先生成计划，再确认应用')
@@ -552,6 +651,27 @@ export class VideoWorkflowService {
     const motion = input.motionPlanJobId
       ? this.repository.motionPlan(project.id, input.motionPlanJobId, input.expectedRevision)
       : undefined
+    if (
+      input.nativeMaterials !== undefined &&
+      (input.stage !== 'roughcut' ||
+        input.renderEngine !== 'remotion' ||
+        input.modification ||
+        input.motionPlanJobId)
+    )
+      throw new Error('画面素材变更仅用于整片原生粗剪；修改计划沿用来源粗剪素材')
+    if (input.stage === 'roughcut' && input.renderEngine === 'remotion') {
+      const nativeMaterials = validateNativeMaterials(
+        input.modification || motion || input.musicOnly
+          ? (stageValue(motionProject, 'roughcut')?.nativeMaterials ?? [])
+          : (input.nativeMaterials ?? stageValue(project, 'roughcut')?.nativeMaterials ?? []),
+        stageValue(
+          input.modification || motion || input.musicOnly ? motionProject : project,
+          'storyboard',
+        )!.scenes.map((scene) => scene.id),
+      )
+      await this.files.verifyPayload(project.id, nativeMaterials)
+      input = { ...input, nativeMaterials }
+    }
     if (motion && Boolean(motion.native) !== (input.renderEngine === 'remotion'))
       throw new Error('修改计划与合成引擎不一致，请使用对应引擎重新生成计划')
     if (
@@ -564,6 +684,7 @@ export class VideoWorkflowService {
       throw new Error('MG 已关闭或目标分镜已排除，请先调整分镜创作设置再修改动效')
     const needsInitialMotion =
       input.stage === 'roughcut' &&
+      !input.musicOnly &&
       input.renderEngine !== 'remotion' &&
       !motion &&
       !input.modification &&
@@ -586,30 +707,51 @@ export class VideoWorkflowService {
       input.stage,
       input.expectedRevision,
       input.requestId,
-      imports ? 'manual-audio' : cover?.method === 'image2' ? 'image2' : input.executor,
+      imports
+        ? 'manual-audio'
+        : cover?.method === 'image2'
+          ? 'image2'
+          : (audioAgent ?? input.executor),
       fingerprint({ ...input, imports }),
-      cover
+      input.audioTrackId
         ? {
-            action: 'generate-cover',
-            feedback: cover.feedback,
-            sourceVersion: project.stages.publish?.version,
+            action: 'regenerate-audio',
+            audioTrackId: input.audioTrackId,
+            audioTrackIds: audioTargets,
+            audioTrackNumbers: audioTargets.map(
+              (id) => previousAudio!.tracks.findIndex((track) => track.file.id === id) + 1,
+            ),
+            feedback: audioModification,
+            sourceVersion: project.stages.audio?.version,
           }
-        : input.reuseNarration
-          ? { action: 'reuse-narration', sourceVersion: project.stages.narration?.version }
-          : input.sceneId
-            ? {
-                action: 'scene-generate',
-                sceneId: input.sceneId,
-                sceneTitle: storyboard?.scenes.find((scene) => scene.id === input.sceneId)?.title,
-                sceneNumber:
-                  storyboard!.scenes.findIndex((scene) => scene.id === input.sceneId) + 1,
-                feedback: input.storyboardModification?.feedback,
-                sourceVersion: project.stages[input.stage]?.version,
-              }
-            : undefined,
+        : cover
+          ? {
+              action: 'generate-cover',
+              feedback: cover.feedback,
+              sourceVersion: project.stages.publish?.version,
+            }
+          : input.reuseNarration
+            ? { action: 'reuse-narration', sourceVersion: project.stages.narration?.version }
+            : input.sceneId
+              ? {
+                  action: 'scene-generate',
+                  sceneId: input.sceneId,
+                  sceneTitle: storyboard?.scenes.find((scene) => scene.id === input.sceneId)?.title,
+                  sceneNumber:
+                    storyboard!.scenes.findIndex((scene) => scene.id === input.sceneId) + 1,
+                  feedback: input.storyboardModification?.feedback,
+                  sourceVersion: project.stages[input.stage]?.version,
+                }
+              : undefined,
       input.renderEngine,
     )
     if (job.state !== 'running' || this.running.has(job.id)) return job
+    const precedingAudio = input.audioTrackId
+      ? [...this.running.entries()]
+          .filter(([id]) => this.repository.job(id)?.projectId === project.id)
+          .map(([, task]) => task.promise)
+      : []
+    if (precedingAudio.length) this.repository.updateJob(job.id, { phase: '等待其他配音修改完成' })
     if (input.modification) this.repository.markMotionJob(job.id)
     const controller = new AbortController()
     const promise = Promise.resolve().then(async () => {
@@ -622,6 +764,7 @@ export class VideoWorkflowService {
         }
       }
       try {
+        await waitForAudioTasks(precedingAudio, controller.signal)
         let payload: unknown
         const runtime = this.runtime.get()
         if (input.reuseNarration) {
@@ -740,17 +883,57 @@ export class VideoWorkflowService {
           if (selectedCategory)
             settings.categoryName = `${categories.find((parent) => parent.id === selectedCategory.parentId)?.name ?? '分区'} / ${selectedCategory.name}`
         } else if (input.stage === 'audio') {
-          if (input.audioTrackId && previousAudio) {
+          const prepared = input.audioTrackId
+            ? this.repository.prepareAudioRegeneration(
+                job.id,
+                Object.fromEntries(
+                  ['brief', 'copy', 'storyboard', 'narration'].map((stage) => [
+                    stage,
+                    project.stages[stage as VideoStage]?.id,
+                  ]),
+                ),
+              )
+            : { project, job }
+          const audioProject = prepared.project
+          const currentAudio = stageValue(audioProject, 'audio')
+          if (input.audioTrackId && currentAudio) {
             this.repository.updateAudioProgress(job.id, {
-              tracks: previousAudio.tracks,
-              total: previousAudio.tracks.length,
+              tracks: currentAudio.tracks,
+              total: currentAudio.tracks.length,
               regeneratingTrackId: input.audioTrackId,
+              regeneratingTrackIds: audioTargets,
             })
             this.changed(project.id)
           }
+          const corrections: Record<string, AudioCorrection> = {}
+          if (audioModification && audioAgent) {
+            for (const targetId of audioTargets) {
+              phase('AI 正在根据修改意见调整读音与停顿')
+              const plan = await runAgent(
+                audioAgent,
+                runtime,
+                cwd,
+                audioCorrectionPrompt(
+                  audioProject,
+                  currentAudio!.tracks.find((track) => track.file.id === targetId)!,
+                  audioModification,
+                ),
+                controller.signal,
+                { timeout: 180000, onProgress: phase },
+              )
+              controller.signal.throwIfAborted()
+              const correction = {
+                ...validateAudioCorrectionPlan(plan),
+                feedback: audioModification,
+                executor: audioAgent,
+              }
+              corrections[targetId] = correction
+              phase(`AI 已调整合成输入，开始重新生成配音 · ${correction.summary}`)
+            }
+          }
           payload = await createWorkflowAudio({
-            project,
-            job,
+            project: audioProject,
+            job: prepared.job,
             voice: input.voice ?? { engine: 'edge', voiceId: 'zh-CN-XiaoxiaoNeural', options: {} },
             service: this.voiceover(),
             files: this.files,
@@ -759,20 +942,22 @@ export class VideoWorkflowService {
             signal: controller.signal,
             phase,
             imports,
-            audioTrackId: input.audioTrackId,
+            audioTrackIds: audioTargets.length ? audioTargets : undefined,
+            corrections,
             progress: (progress) => {
               controller.signal.throwIfAborted()
               if (this.stopped) throw new Error('任务已停止')
               this.repository.updateAudioProgress(
                 job.id,
-                input.audioTrackId && previousAudio
+                input.audioTrackId && currentAudio
                   ? {
                       tracks: [
                         ...progress.tracks,
-                        ...previousAudio.tracks.slice(progress.tracks.length),
+                        ...currentAudio.tracks.slice(progress.tracks.length),
                       ],
-                      total: previousAudio.tracks.length,
+                      total: currentAudio.tracks.length,
                       regeneratingTrackId: input.audioTrackId,
+                      regeneratingTrackIds: audioTargets,
                     }
                   : progress,
               )
@@ -831,8 +1016,8 @@ export class VideoWorkflowService {
             }
           }
           payload = await renderWorkflow({
-            project: input.motionPlanJobId ? motionProject : project,
-            final: input.stage === 'render',
+            project: input.motionPlanJobId || input.musicOnly ? motionProject : project,
+            final: input.stage === 'render' || Boolean(input.musicOnly),
             files: this.files,
             runtime,
             cwd,
@@ -841,9 +1026,10 @@ export class VideoWorkflowService {
             motion: renderMotion,
             music,
             renderEngine: input.renderEngine,
-            ...(input.renderEngine === 'remotion' && input.stage === 'roughcut'
+            nativeMaterials: input.nativeMaterials,
+            ...(input.renderEngine === 'remotion' && input.stage === 'roughcut' && !input.musicOnly
               ? {
-                  createNative: (prompt: string) =>
+                  createNative: (prompt: string, options: NativeAttemptOptions) =>
                     runAgent(
                       selectWorkflowAgent(
                         runtime,
@@ -852,12 +1038,13 @@ export class VideoWorkflowService {
                       runtime,
                       cwd,
                       prompt,
-                      controller.signal,
-                      { onProgress: phase },
+                      options.signal,
+                      { onProgress: phase, timeout: options.timeout },
                     ),
                 }
               : {}),
           })
+          if (input.musicOnly) delete (payload as StagePayloads['roughcut']).sourceRoughcut
         } else {
           const rawSettings =
             input.stage === 'storyboard'
@@ -1056,7 +1243,7 @@ export class VideoWorkflowService {
     ))
       await this.cancel(job.id)
     if (project.stages.roughcut?.status === 'stale' && stageUnlocked(project, 'roughcut')) {
-      const roughcut = stageValue(project, 'roughcut')!
+      const roughcut = productionRevision(project)!.payload as StagePayloads['roughcut']
       await this.files.verifyPayload(projectId, roughcut)
       if (
         fingerprint(
@@ -1073,6 +1260,8 @@ export class VideoWorkflowService {
   }
   async dispose() {
     this.stopped = true
+    await this.frameInspection.dispose()
+    await this.frameCovers.dispose()
     for (const item of this.videoImports.values()) item.controller.abort()
     await Promise.allSettled([...this.videoImports.values()].map((item) => item.promise))
     await Promise.all([this.publishing.dispose(), this.douyinPublishing.dispose()])
@@ -1265,7 +1454,7 @@ export class VideoWorkflowService {
         ...(audio ? [['subtitles.srt', audio.subtitles] as const] : []),
       ] as const)
         copyFileSync(await this.files.verify(projectId, file), join(directory, name))
-      if (metadata.cover)
+      if (metadata.cover && platform === 'bilibili')
         copyFileSync(
           await this.files.verify(projectId, metadata.cover.feedFile),
           join(directory, 'cover-4x3.png'),
@@ -1293,9 +1482,11 @@ export class VideoWorkflowService {
           (audio
             ? ' 和 subtitles.srt。'
             : '。外部成片未提供独立字幕文件，视频内已有字幕随原视频保留。') +
-          (metadata.cover
+          (metadata.cover && platform === 'bilibili'
             ? '\ncover.png 为 1600×900（16:9）个人空间封面；cover-4x3.png 为 1600×1200（4:3）首页推荐封面，请在创作中心分别设置。\n'
-            : '') +
+            : metadata.cover
+              ? `\ncover.png 为所选视频帧，保留原画幅 ${metadata.cover.width}×${metadata.cover.height}。\n`
+              : '') +
           '上传成功后，将发布链接回填到 MyDashboard。导出发布包不代表平台发布成功。',
       )
       this.repository.publication(

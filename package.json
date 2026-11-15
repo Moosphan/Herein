@@ -22,6 +22,7 @@
     "design:verify": "pnpm --dir docs/design-system/v2 verify",
     "design:culture": "node scripts/generate-traditional-culture-assets.mjs && electron scripts/preview-traditional-culture-assets.cjs",
     "design:culture:ink": "node scripts/generate-ink-culture-assets.mjs && electron scripts/preview-ink-culture-assets.cjs",
+    "design:culture:gallery": "node scripts/build-culture-gallery.mjs",
     "design:legacy:generate": "node scripts/design-system.cjs",
     "design:legacy:check": "node scripts/design-system.cjs --check",
     "design:legacy:preview": "node scripts/serve-design-system.cjs",
@@ -38,9 +39,15 @@
     "test:voiceover": "electron scripts/run-voiceover-test.cjs",
     "test:voice-runtime": "python3 -B scripts/test-voice-runtime.py",
     "test:video-workflow": "electron scripts/run-video-workflow-test.cjs",
+    "test:remotion:render": "electron scripts/test-remotion-workflow.cjs",
+    "test:remotion:native": "node --import tsx --test scripts/test-native-remotion.ts scripts/test-remotion-repair.ts scripts/test-native-materials.ts",
+    "test:remotion:native:render": "electron scripts/test-native-remotion-render.cjs",
+    "test:remotion:ui": "pnpm build && electron scripts/test-remotion-workflow-ui.cjs",
     "test:bilibili-publishing": "electron scripts/run-bilibili-publishing-test.cjs",
     "test:bilibili-publishing:ui": "pnpm build && electron scripts/test-bilibili-publishing-ui.cjs",
     "test:publication-covers:ui": "pnpm build && electron scripts/test-publication-covers-ui.cjs",
+    "test:frame-covers:ui": "pnpm build && electron scripts/test-frame-cover-ui.cjs",
+    "accept:remotion:films": "electron scripts/accept-native-remotion-films.cjs",
     "test:history-template": "electron scripts/test-history-template.cjs",
     "test:history-template:ui": "pnpm build && electron scripts/test-history-template-ui.cjs",
     "test:video-workflow:ui": "pnpm build && electron scripts/test-video-workflow-ui.cjs",
@@ -65,13 +72,10 @@
     "test:chatgpt-usage-refresh": "node scripts/run-chatgpt-usage-refresh-test.cjs",
     "test:codex-session-usage": "node scripts/run-codex-session-usage-test.cjs",
     "test:reset-radar": "tsx scripts/test-reset-radar.ts",
-    "postinstall": "electron-builder install-app-deps",
-    "test:remotion:render": "electron scripts/test-remotion-workflow.cjs",
-    "test:remotion:native": "node --import tsx --test scripts/test-native-remotion.ts",
-    "test:remotion:native:render": "electron scripts/test-native-remotion-render.cjs",
-    "test:remotion:ui": "pnpm build && electron scripts/test-remotion-workflow-ui.cjs"
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "typescript": "^5.7.2",
     "@heroicons/react": "2.2.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
@@ -108,8 +112,7 @@
     "rss-parser": "^3.13.0",
     "tailwind-merge": "^2.6.0",
     "tiptap-markdown": "^0.9.0",
-    "zustand": "^5.0.0",
-    "typescript": "^5.7.2"
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

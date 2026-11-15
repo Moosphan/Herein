@@ -43,7 +43,7 @@ if (process.argv.includes('--image')) {
   writeFileSync(join(root, 'cover-image-args.json'), JSON.stringify(args))
   const target = args[args.indexOf('--image') + 1]
   if (mode === 'invalid') writeFileSync(target, 'not an image')
-  else copyFileSync(join(root, 'cover-source.png'), target)
+  else copyFileSync(join(root, mode === 'jpeg' ? 'cover-source.jpg' : 'cover-source.png'), target)
 } else {
   let prompt = ''
   for await (const chunk of process.stdin) prompt += chunk

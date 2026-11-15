@@ -1,10 +1,10 @@
 import { useSyncExternalStore } from 'react'
 import {
   isVideoRenderEngine,
-  stageValue,
   type VideoProject,
   type VideoRenderEngine,
 } from '@shared/video-workflow'
+import { productionRevision } from '@shared/video-production'
 
 const changedEvent = 'video-render-engine-changed'
 const memory = new Map<string, VideoRenderEngine>()
@@ -20,7 +20,12 @@ function subscribe(listener: () => void) {
 
 export function useRenderEngine(project: VideoProject) {
   const key = `video-workflow:render-engine:${project.id}`
-  const fallback = stageValue(project, 'roughcut')?.renderEngine ?? 'hyperframes'
+  const fallback =
+    (
+      productionRevision(project)?.payload as
+        | import('@shared/video-workflow').RenderPayload
+        | undefined
+    )?.renderEngine ?? 'hyperframes'
   const current = () => {
     try {
       const value = localStorage.getItem(key)

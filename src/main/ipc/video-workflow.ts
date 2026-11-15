@@ -13,6 +13,8 @@ import type {
 import { workflowMediaResponse } from '../services/video-workflow/media'
 import type { BilibiliPublishRequest } from '../../shared/bilibili-publishing'
 import { publishingVideoUrl } from '../services/video-workflow/catbus'
+import { importNativeMaterial } from '../services/video-workflow/native-materials'
+import { validateNativeMaterials } from '../../shared/video-materials'
 
 let service: VideoWorkflowService | undefined
 let getWindow: () => BrowserWindow | null = () => null
@@ -89,6 +91,28 @@ export function registerVideoWorkflowHandlers(mainWindow: () => BrowserWindow | 
     })
     return result.canceled ? null : result.filePaths[0]
   }
+  handle('workflow:frameCoverInfo', (id: string, renderId: string, expected: number) =>
+    getVideoWorkflow().frameCovers.info(id, renderId, expected),
+  )
+  handle(
+    'workflow:createFrameCover',
+    (input: Parameters<VideoWorkflowService['frameCovers']['create']>[0]) =>
+      getVideoWorkflow().frameCovers.create(input),
+  )
+  handle('workflow:cancelFrameCover', (id: string, requestId: string) =>
+    getVideoWorkflow().frameCovers.cancel(id, requestId),
+  )
+  handle('workflow:renderInspectionInfo', (projectId: string, revisionId: string) =>
+    getVideoWorkflow().frameInspection.info(projectId, revisionId),
+  )
+  handle(
+    'workflow:renderInspectionFrames',
+    (projectId: string, revisionId: string, sceneId: string, requestId: string) =>
+      getVideoWorkflow().frameInspection.frames(projectId, revisionId, sceneId, requestId),
+  )
+  handle('workflow:cancelRenderInspection', (projectId: string, requestId: string) =>
+    getVideoWorkflow().frameInspection.cancel(projectId, requestId),
+  )
   handle('workflow:list', (archived: boolean) =>
     getVideoWorkflow().repository.listSummaries(archived === true),
   )
@@ -102,8 +126,10 @@ export function registerVideoWorkflowHandlers(mainWindow: () => BrowserWindow | 
   handle('workflow:revisionContext', (id: string, revision: string) =>
     getVideoWorkflow().repository.revisionContext(id, revision),
   )
-  handle('workflow:historyAssets', (id: string, kind: 'cover' | 'music') =>
-    getVideoWorkflow().repository.historyAssets(id, kind),
+  handle(
+    'workflow:historyAssets',
+    (id: string, kind: 'cover' | 'music', platform?: VideoPlatform) =>
+      getVideoWorkflow().repository.historyAssets(id, kind, platform),
   )
   handle('workflow:create', (title: string) => getVideoWorkflow().repository.create(title))
   handle('workflow:selectFinishedVideo', async () => {
@@ -189,6 +215,31 @@ export function registerVideoWorkflowHandlers(mainWindow: () => BrowserWindow | 
       filters: [{ name: 'HTML', extensions: ['html'] }],
     })
     return result.canceled ? null : getVideoWorkflow().files.import(id, result.filePaths[0])
+  })
+  handle('workflow:importNativeMaterial', async (id: string) => {
+    const workflow = getVideoWorkflow()
+    const project = workflow.repository.get(id)
+    if (project.jobs.some((job) => job.state === 'running'))
+      throw new Error('请等待当前任务结束再导入素材')
+    const result = await dialog.showOpenDialog(mainWindow()!, {
+      title: '导入原生画面素材',
+      properties: ['openFile'],
+      filters: [
+        {
+          name: '图片、视频和字体',
+          extensions: ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'woff', 'woff2', 'ttf', 'otf'],
+        },
+      ],
+    })
+    return result.canceled
+      ? null
+      : importNativeMaterial(id, result.filePaths[0], workflow.files, workflow.runtime.get())
+  })
+  handle('workflow:verifyNativeMaterials', async (id: string, value: unknown) => {
+    const workflow = getVideoWorkflow()
+    const assets = validateNativeMaterials(value)
+    await workflow.files.verifyPayload(id, assets)
+    return assets
   })
   handle('workflow:importMusic', async (id: string) => {
     const result = await dialog.showOpenDialog(mainWindow()!, {

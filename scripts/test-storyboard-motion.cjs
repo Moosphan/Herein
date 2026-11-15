@@ -23,6 +23,56 @@ app.whenReady().then(async () => {
   let service
   let database
   try {
+    const svg = `<svg width="800" height="600" viewBox="0 0 800 600">
+      <line id="horizontal" x1="20" y1="40" x2="400" y2="40" stroke="red" stroke-width="2" />
+      <line id="vertical" x1="20" y1="80" x2="20" y2="300" stroke="red" stroke-width="2" />
+      <path id="path" d="M40 80 H400" fill="none" stroke="red" stroke-width="2" />
+      <line id="point" x1="30" y1="40" x2="30" y2="40" stroke="red" stroke-width="2" />
+      <line id="unstroked" x1="20" y1="50" x2="400" y2="50" />
+      <line id="zero-stroke" x1="20" y1="60" x2="400" y2="60" stroke="red" stroke-width="0" />
+      <line id="transparent-stroke" x1="20" y1="70" x2="400" y2="70" stroke="red" stroke-opacity="0" />
+      <g style="display:none"><line id="hidden" x1="20" y1="90" x2="400" y2="90" stroke="red" /></g>
+      <defs><line id="definition" x1="20" y1="100" x2="400" y2="100" stroke="red" /></defs>
+    </svg>`
+    const visibleStrokes = await prepareMotionScene(
+      svg,
+      'stroke-fixture',
+      ['#horizontal', '#vertical', '#path'],
+      new AbortController().signal,
+    )
+    assert.deepEqual(visibleStrokes.counts, [1, 1, 1])
+    const scaledEntrance = await prepareMotionScene(
+      '<style>#entrance{width:800px;height:2px;background:red;transform:scaleX(0)}</style><div id="entrance"></div>',
+      'scaled-entrance',
+      ['#entrance'],
+      new AbortController().signal,
+    )
+    assert.deepEqual(scaledEntrance.counts, [1])
+    assert.match(scaledEntrance.html, /scaleX\(0\)/)
+    for (const html of [
+      '<div id="entrance" style="width:0;height:2px;background:red;transform:scaleX(0)"></div>',
+      '<div style="display:none"><div id="entrance" style="width:800px;height:2px;background:red;transform:scaleX(0)"></div></div>',
+      '<div style="visibility:hidden"><div id="entrance" style="width:800px;height:2px;background:red;transform:scaleX(0)"></div></div>',
+    ])
+      await assert.rejects(
+        prepareMotionScene(html, 'invalid-entrance', ['#entrance'], new AbortController().signal),
+        /不可见或非画面元素/,
+      )
+    for (const selector of [
+      '#point',
+      '#unstroked',
+      '#zero-stroke',
+      '#transparent-stroke',
+      '#hidden',
+      '#definition',
+    ])
+      await assert.rejects(
+        prepareMotionScene(svg, 'invalid-stroke', [selector], new AbortController().signal),
+        /不可见或非画面元素/,
+      )
+    console.log(
+      'PASS: visible horizontal/vertical SVG strokes are valid motion targets; empty, hidden and unpainted targets remain rejected',
+    )
     const storyboard = {
       mode: 'agent',
       template: 'technical',
@@ -169,7 +219,7 @@ app.whenReady().then(async () => {
       writeFileSync(
         executable,
         '#!/usr/bin/env node\n' +
-          `const fs=require('node:fs');let prompt='';process.stdin.on('data',chunk=>prompt+=chunk);process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(promptPath)},prompt);fs.writeFileSync(process.argv[process.argv.indexOf('--output-last-message')+1],${JSON.stringify(JSON.stringify(payload))});});`,
+          `if(process.argv[2]==='mcp'){process.stdout.write('[]');process.exit(0)}const output=process.argv.indexOf('--output-last-message');if(output<0||!process.argv[output+1])process.exit(2);const fs=require('node:fs');let prompt='';process.stdin.on('data',chunk=>prompt+=chunk);process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(promptPath)},prompt);fs.writeFileSync(process.argv[output+1],${JSON.stringify(JSON.stringify(payload))});});`,
       )
       chmodSync(executable, 0o755)
     }

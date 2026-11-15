@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "inkstone-and-brush",
+      "name": "砚边笔意",
+      "theme": "文字制度与器用 · 文房书籍",
+      "category": "color",
+      "note": "墨石青黑 · 纸卷米白 · 竹笔与笔架",
+      "svg": "inkstone-and-brush.svg",
+      "png": "inkstone-and-brush.png"
+    },
+    {
+      "id": "jade-disc-tassel",
+      "name": "玉璧垂绦",
+      "theme": "文字制度与器用 · 玉石佩饰",
+      "category": "color",
+      "note": "青玉温润 · 真实透孔 · 赭红丝绦",
+      "svg": "jade-disc-tassel.svg",
+      "png": "jade-disc-tassel.png"
+    },
+    {
+      "id": "bronze-chime-bells",
+      "name": "编钟清韵",
+      "theme": "文字制度与器用 · 礼乐表演",
+      "category": "color",
+      "note": "铜褐钟体 · 木架悬挂 · 简化五钟意象",
+      "svg": "bronze-chime-bells.svg",
+      "png": "bronze-chime-bells.png"
+    },
+    {
+      "id": "lacquer-inlay-box",
+      "name": "漆匣含光",
+      "theme": "文字制度与器用 · 漆木日用",
+      "category": "color",
+      "note": "髹漆暗朱 · 浅色螺钿枝叶 · 盒盖承接",
+      "svg": "lacquer-inlay-box.svg",
+      "png": "lacquer-inlay-box.png"
+    },
+    {
+      "id": "bow-and-quiver",
+      "name": "弓矢待发",
+      "theme": "军事与交通 · 兵器军需",
+      "category": "color",
+      "note": "木骨弓身 · 连续弓弦 · 箭箙与羽翎",
+      "svg": "bow-and-quiver.svg",
+      "png": "bow-and-quiver.png"
+    },
+    {
+      "id": "strung-round-coins",
+      "name": "钱串流通",
+      "theme": "生产交流与图解 · 商业货币",
+      "category": "color",
+      "note": "铜金材料色 · 方孔镂空 · 钱绳穿接，纹样非币文",
+      "svg": "strung-round-coins.svg",
+      "png": "strung-round-coins.png"
+    },
+    {
+      "id": "tea-kettle-brazier",
+      "name": "炉畔茶烟",
+      "theme": "文字制度与器用 · 饮食茶事",
+      "category": "color",
+      "note": "青瓷茶壶 · 赭陶小炉 · 淡烟与茶盏",
+      "svg": "tea-kettle-brazier.svg",
+      "png": "tea-kettle-brazier.png"
+    },
+    {
+      "id": "loom-and-shuttle",
+      "name": "织梭经纬",
+      "theme": "生产交流与图解 · 百工制造",
+      "category": "color",
+      "note": "木架经线 · 烟紫织面 · 梭与卷布梁，结构意象",
+      "svg": "loom-and-shuttle.svg",
+      "png": "loom-and-shuttle.png"
+    },
+    {
+      "id": "terraces-waterwheel",
+      "name": "梯田水转",
+      "theme": "生产交流与图解 · 农耕水利",
+      "category": "ink",
+      "note": "层叠田埂 · 青灰水路 · 木轮支架，非工程复原",
+      "svg": "terraces-waterwheel.svg",
+      "png": "terraces-waterwheel.png"
+    },
+    {
+      "id": "apricot-two-swallows",
+      "name": "杏枝双燕",
+      "theme": "自然与环境 · 花木飞禽",
+      "category": "figures",
+      "note": "杏粉花簇 · 枯褐枝势 · 近远双燕与叉尾",
+      "svg": "apricot-two-swallows.svg",
+      "png": "apricot-two-swallows.png"
+    },
+    {
+      "id": "lotus-swimming-koi",
+      "name": "莲下游鲤",
+      "theme": "自然与环境 · 水域鱼类",
+      "category": "figures",
+      "note": "朱金双鲤 · 同色柔染腹面 · 莲叶与水面留白",
+      "svg": "lotus-swimming-koi.svg",
+      "png": "lotus-swimming-koi.png"
+    },
+    {
+      "id": "moon-waterside-pavilion",
+      "name": "月下水亭",
+      "theme": "建筑与历史空间 · 园林庭院",
+      "category": "ink",
+      "note": "青灰薄檐 · 柱梁台基 · 月色与水岸",
+      "svg": "moon-waterside-pavilion.svg",
+      "png": "moon-waterside-pavilion.png"
+    }
+  ]
+}

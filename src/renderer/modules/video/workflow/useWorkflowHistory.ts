@@ -127,13 +127,23 @@ export function useWorkflowRevision(project: VideoProject, id: string | undefine
   }
 }
 
-export function useWorkflowAssets<Value>(project: VideoProject, kind: 'cover' | 'music') {
+export function useWorkflowAssets<Value>(
+  project: VideoProject,
+  kind: 'cover' | 'music',
+  platform?: 'bilibili' | 'douyin',
+) {
   const [items, setItems] = useState<{ version: number; value: Value }[]>([])
   const [error, setError] = useState('')
   useEffect(() => {
     let active = true
     setError('')
-    void workflowCall<{ version: number; value: Value }[]>('historyAssets', project.id, kind)
+    setItems([])
+    void workflowCall<{ version: number; value: Value }[]>(
+      'historyAssets',
+      project.id,
+      kind,
+      platform,
+    )
       .then((value) => {
         if (active) setItems(value)
       })
@@ -143,7 +153,7 @@ export function useWorkflowAssets<Value>(project: VideoProject, kind: 'cover' | 
     return () => {
       active = false
     }
-  }, [project.id, project.revision, kind])
+  }, [project.id, project.revision, kind, platform])
   return { items, error }
 }
 

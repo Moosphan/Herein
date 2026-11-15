@@ -1,0 +1,71 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "scholar-reading-scroll",
+      "png": "scholar-reading-scroll.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 236054,
+      "transparent": 1363944
+    },
+    {
+      "id": "musician-playing-qin",
+      "png": "musician-playing-qin.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 218040,
+      "transparent": 1381952
+    },
+    {
+      "id": "crane-in-reeds",
+      "png": "crane-in-reeds.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 74994,
+      "transparent": 1522525
+    },
+    {
+      "id": "deer-under-autumn-light",
+      "png": "deer-under-autumn-light.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 135999,
+      "transparent": 1463429
+    },
+    {
+      "id": "beacon-at-sunset",
+      "png": "beacon-at-sunset.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 327613,
+      "transparent": 1251112
+    },
+    {
+      "id": "willow-river-fisher",
+      "png": "willow-river-fisher.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 176895,
+      "transparent": 1399044
+    },
+    {
+      "id": "bronze-ritual-ding",
+      "png": "bronze-ritual-ding.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 218447,
+      "transparent": 1381500
+    },
+    {
+      "id": "golden-chrysanthemums",
+      "png": "golden-chrysanthemums.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 107661,
+      "transparent": 1486101
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

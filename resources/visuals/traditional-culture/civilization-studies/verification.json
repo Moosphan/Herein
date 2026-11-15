@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "wheat-and-stone-mill",
+      "png": "wheat-and-stone-mill.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 336765,
+      "transparent": 1250036
+    },
+    {
+      "id": "woodblock-printing-desk",
+      "png": "woodblock-printing-desk.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 386166,
+      "transparent": 1199765
+    },
+    {
+      "id": "abacus-and-counting-rods",
+      "png": "abacus-and-counting-rods.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 279089,
+      "transparent": 1303326
+    },
+    {
+      "id": "steelyard-and-grain-measure",
+      "png": "steelyard-and-grain-measure.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 177395,
+      "transparent": 1407068
+    },
+    {
+      "id": "octagonal-palace-lantern",
+      "png": "octagonal-palace-lantern.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 133044,
+      "transparent": 1453206
+    },
+    {
+      "id": "swallow-kite-and-spool",
+      "png": "swallow-kite-and-spool.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 112072,
+      "transparent": 1486818
+    },
+    {
+      "id": "squirrel-in-grape-vine",
+      "png": "squirrel-in-grape-vine.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 188557,
+      "transparent": 1410341
+    },
+    {
+      "id": "narcissus-in-porcelain-basin",
+      "png": "narcissus-in-porcelain-basin.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 181762,
+      "transparent": 1417783
+    },
+    {
+      "id": "peacock-and-camellia",
+      "png": "peacock-and-camellia.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 194002,
+      "transparent": 1393819
+    },
+    {
+      "id": "city-gate-in-spring-clouds",
+      "png": "city-gate-in-spring-clouds.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 438035,
+      "transparent": 1142498
+    },
+    {
+      "id": "lotus-tiles-on-timber-eaves",
+      "png": "lotus-tiles-on-timber-eaves.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 401559,
+      "transparent": 1187708
+    },
+    {
+      "id": "silk-embroidery-and-needle",
+      "png": "silk-embroidery-and-needle.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 330957,
+      "transparent": 1255819
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

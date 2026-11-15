@@ -1,4 +1,5 @@
 import type { VoiceRequest } from './voiceover'
+import { validateNativeMaterials, type NativeMaterial } from './video-materials'
 
 export type VideoFormat = 'landscape' | 'portrait'
 export function videoFrame(format: VideoFormat = 'landscape') {
@@ -133,16 +134,46 @@ export interface StoryboardPayload {
   scenes: StoryScene[]
 }
 export type WorkflowVoice = Omit<VoiceRequest, 'text' | 'clientRequestId'>
+export interface AudioCorrectionPlan {
+  summary: string
+  parts: { text: string; pauseAfterMs: number }[]
+}
+export interface AudioCorrection extends AudioCorrectionPlan {
+  feedback: string
+  executor: WorkflowAgent
+}
+export function validateAudioCorrectionPlan(value: unknown): AudioCorrectionPlan {
+  const input = record(value)
+  if (!Array.isArray(input.parts) || !input.parts.length || input.parts.length > 20)
+    throw new Error('配音修改结果需包含 1–20 个合成子段，请细化修改意见后重试')
+  const parts = input.parts.map((value) => {
+    const part = record(value)
+    const content = text(part.text, '合成文本', 1200)
+    if (Array.from(content).length > 300) throw new Error('配音修改结果每个合成子段最多 300 字符')
+    if (
+      !Number.isInteger(part.pauseAfterMs) ||
+      Number(part.pauseAfterMs) < 0 ||
+      Number(part.pauseAfterMs) > 2000
+    )
+      throw new Error('配音修改结果的停顿需为 0–2000 毫秒的整数')
+    return { text: content, pauseAfterMs: Number(part.pauseAfterMs) }
+  })
+  if (parts.reduce((sum, part) => sum + Array.from(part.text).length, 0) > 1200)
+    throw new Error('配音修改结果的合成文本合计最多 1200 字符')
+  return { summary: text(input.summary, '配音调整说明', 2000), parts }
+}
 export interface AudioTrack {
   sceneId: string
   file: WorkflowFile
   duration: number
   text: string
+  correction?: AudioCorrection
 }
 export interface AudioProgress {
   tracks: AudioTrack[]
   total: number
   regeneratingTrackId?: string
+  regeneratingTrackIds?: string[]
 }
 export interface AudioPayload {
   tracks: AudioTrack[]
@@ -176,6 +207,7 @@ export interface RenderMusic {
 }
 export interface RenderPayload {
   renderEngine?: VideoRenderEngine
+  nativeMaterials?: NativeMaterial[]
   imported?: { filename: string; description: string }
   file: WorkflowFile
   duration: number
@@ -208,7 +240,7 @@ export interface MotionFrame {
   rotate?: string
 }
 export const MOTION_CAPABILITIES =
-  'opacity(0–1)、translate("0px 20px")、scale(0–4)、scaleX(0–4)、scaleY(0–4)、rotate("10deg")；scale 为等比缩放，scaleX/scaleY 为方向缩放，不在同一关键帧混用。横线展开用 scaleX，柱形增长用 scaleY，缩放原点由 HTML transform-origin 设置。'
+  'opacity(0–1)、translate("0px 20px")、scale(0–4)、scaleX(0–4)、scaleY(0–4)、rotate("10deg")；这些名称直接作为关键帧 JSON 的字段，例如 {"scaleX":0}、{"translate":"0px 20px"}，禁止写成 {"transform":"scaleX(0)"}，禁止 transform、offset、filter、回调或其他字段。easing、iterations、direction 放在动效项上，不放入关键帧。scale 为等比缩放，scaleX/scaleY 为方向缩放，不在同一关键帧混用。横线展开用 scaleX，柱形增长用 scaleY，缩放原点由 HTML transform-origin 设置。'
 export interface MotionEffect {
   selector: string
   start: number
@@ -259,16 +291,18 @@ export interface PublicationCover {
   feedFile: WorkflowFile
   designFile?: WorkflowFile
   sourceRenderId: string
-  method: 'code' | 'image2'
+  method: 'code' | 'image2' | 'frame'
+  platform?: VideoPlatform
+  frameSource?: { videoSha256: string; time: number; frame: number; fps: number }
   createdAt: string
   feedback: string
-  width: 1600
-  height: 900
-  feedWidth: 1600
-  feedHeight: 1200
+  width: number
+  height: number
+  feedWidth: number
+  feedHeight: number
 }
 export interface CoverGeneration {
-  method: PublicationCover['method']
+  method: 'code' | 'image2'
   feedback?: string
 }
 export interface PlatformMetadata {
@@ -324,6 +358,10 @@ export interface WorkflowOperation {
     | 'reuse-roughcut'
     | 'accept-illustration'
     | 'generate-cover'
+    | 'regenerate-audio'
+  audioTrackId?: string
+  audioTrackIds?: string[]
+  audioTrackNumbers?: number[]
   sceneId?: string
   sceneTitle?: string
   sceneNumber?: number
@@ -349,6 +387,18 @@ export interface WorkflowJob {
   operation?: WorkflowOperation
   createdAt: string
   updatedAt: string
+}
+export function audioJobTrackIds(
+  job: Pick<WorkflowJob, 'stage' | 'operation' | 'audioProgress'>,
+): string[] {
+  if (job.stage !== 'audio') return []
+  return (
+    job.operation?.audioTrackIds ??
+    (job.operation?.audioTrackId
+      ? [job.operation.audioTrackId]
+      : (job.audioProgress?.regeneratingTrackIds ??
+        (job.audioProgress?.regeneratingTrackId ? [job.audioProgress.regeneratingTrackId] : [])))
+  )
 }
 export interface PublicationRecord {
   id: string
@@ -703,11 +753,22 @@ export function validatePayload<Stage extends VideoStage>(
       duration: seconds(input.duration),
       tracks: input.tracks.map((value) => {
         const track = record(value)
+        let correction: AudioCorrection | undefined
+        if (track.correction !== undefined) {
+          const data = record(track.correction)
+          if (!isWorkflowAgent(data.executor)) throw new Error('配音修改执行器无效')
+          correction = {
+            ...validateAudioCorrectionPlan(data),
+            feedback: text(data.feedback, '配音修改意见', 5000),
+            executor: data.executor,
+          }
+        }
         return {
           sceneId: text(track.sceneId, '分镜 ID', 80),
           text: text(track.text, '字幕'),
           file: file(track.file),
           duration: seconds(track.duration),
+          ...(correction ? { correction } : {}),
         }
       }),
       ...(input.voice ? { voice: input.voice as WorkflowVoice } : {}),
@@ -777,7 +838,7 @@ export function validatePayload<Stage extends VideoStage>(
       input.compositionNames.some(
         (name) =>
           typeof name !== 'string' ||
-          !/^[a-z0-9-]+\.(html|png|jpg|jpeg|webp|svg|wav|mp3|m4a|ogg|flac|mp4|woff|woff2|json|tsx)$/.test(
+          !/^[a-z0-9-]+\.(html|png|jpg|jpeg|webp|svg|wav|mp3|m4a|ogg|flac|mp4|woff|woff2|ttf|otf|json|tsx)$/.test(
             name,
           ),
       )
@@ -796,6 +857,9 @@ export function validatePayload<Stage extends VideoStage>(
       compositionNames: input.compositionNames as string[],
       manifestHash: text(input.manifestHash, '工程指纹', 64),
       checks: text(input.checks, '合成检查', 20000),
+      ...(input.nativeMaterials !== undefined
+        ? { nativeMaterials: validateNativeMaterials(input.nativeMaterials) }
+        : {}),
       ...(input.music !== undefined ? { music: validateRenderMusic(input.music) } : {}),
       ...(profile
         ? { renderProfile: { quality: profile.quality as 'looks' | 'delivery', fps: 30 as const } }
@@ -857,12 +921,14 @@ export function validatePayload<Stage extends VideoStage>(
           source: settings.source.trim(),
         }
       }
+      const cover = item.cover === undefined ? undefined : validatePublicationCover(item.cover)
+      if (cover?.platform && cover.platform !== platform) throw new Error('封面所属平台不匹配')
       return {
         title: text(item.title, '发布标题', platform === 'douyin' ? 30 : 80),
         description: typeof item.description === 'string' ? item.description : '',
         tags,
         ...(submission ? { submission } : {}),
-        ...(item.cover !== undefined ? { cover: validatePublicationCover(item.cover) } : {}),
+        ...(cover ? { cover } : {}),
       }
     }
     output = { platforms: { bilibili: metadata('bilibili'), douyin: metadata('douyin') } }
@@ -873,11 +939,7 @@ export function validatePayload<Stage extends VideoStage>(
 export function validatePublicationCover(value: unknown): PublicationCover {
   const input = record(value)
   if (
-    !['code', 'image2'].includes(String(input.method)) ||
-    input.width !== 1600 ||
-    input.height !== 900 ||
-    input.feedWidth !== 1600 ||
-    input.feedHeight !== 1200 ||
+    !['code', 'image2', 'frame'].includes(String(input.method)) ||
     typeof input.sourceRenderId !== 'string' ||
     !input.sourceRenderId.trim() ||
     input.sourceRenderId.length > 80 ||
@@ -887,6 +949,49 @@ export function validatePublicationCover(value: unknown): PublicationCover {
     input.feedback.length > 5000
   )
     throw new Error('封面参数无效，请重新生成')
+  const platform = input.platform
+  if (platform !== undefined && platform !== 'bilibili' && platform !== 'douyin')
+    throw new Error('封面平台无效')
+  let frameSource: PublicationCover['frameSource']
+  if (input.method === 'frame') {
+    const source = record(input.frameSource ?? {})
+    if (
+      !platform ||
+      typeof source.videoSha256 !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(source.videoSha256) ||
+      typeof source.time !== 'number' ||
+      !Number.isFinite(source.time) ||
+      source.time < 0 ||
+      typeof source.fps !== 'number' ||
+      !Number.isFinite(source.fps) ||
+      source.fps <= 0 ||
+      source.fps > 120 ||
+      !Number.isSafeInteger(source.frame) ||
+      Number(source.frame) < 0 ||
+      Math.abs(source.time - Number(source.frame) / source.fps) > 0.000001
+    )
+      throw new Error('封面来源帧无效，请重新选帧')
+    frameSource = {
+      videoSha256: source.videoSha256,
+      time: source.time,
+      frame: Number(source.frame),
+      fps: source.fps,
+    }
+  } else if (input.frameSource !== undefined) throw new Error('封面来源参数无效')
+  const original = input.method === 'frame' && platform === 'douyin'
+  if (
+    original
+      ? ![input.width, input.height].every(
+          (size) => Number.isInteger(size) && Number(size) > 0 && Number(size) <= 8192,
+        ) ||
+        input.feedWidth !== input.width ||
+        input.feedHeight !== input.height
+      : input.width !== 1600 ||
+        input.height !== 900 ||
+        input.feedWidth !== 1600 ||
+        input.feedHeight !== 1200
+  )
+    throw new Error('封面尺寸无效')
   const checkedFile = (value: unknown) => {
     const checked = file(value)
     if (checked.mime !== 'image/png' || checked.size > 4 * 1024 * 1024)
@@ -902,12 +1007,14 @@ export function validatePublicationCover(value: unknown): PublicationCover {
     ...(designFile ? { designFile } : {}),
     sourceRenderId: input.sourceRenderId,
     method: input.method as PublicationCover['method'],
+    ...(platform ? { platform } : {}),
+    ...(frameSource ? { frameSource } : {}),
     createdAt: input.createdAt,
     feedback: input.feedback,
-    width: 1600,
-    height: 900,
-    feedWidth: 1600,
-    feedHeight: 1200,
+    width: Number(input.width),
+    height: Number(input.height),
+    feedWidth: Number(input.feedWidth),
+    feedHeight: Number(input.feedHeight),
   }
 }
 

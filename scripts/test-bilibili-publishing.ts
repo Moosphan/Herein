@@ -226,6 +226,70 @@ test('douyin publishes structured topics with caption and title offsets', async 
   }
 })
 
+test('both platforms freeze their own approved selected-frame cover for scheduled publication', async () => {
+  for (const platform of ['bilibili', 'douyin'] as const) {
+    const context = await fixture(platform)
+    try {
+      const selected = await context.files.write(
+        context.project.id,
+        'selected-frame-fixture',
+        '.png',
+      )
+      const metadata = structuredClone(
+        context.project.stages.publish!.payload,
+      ) as import('../src/shared/video-workflow').PublishPayload
+      metadata.platforms[platform].cover = {
+        file: selected,
+        feedFile: selected,
+        sourceRenderId: context.project.stages.render!.id,
+        method: 'frame',
+        platform,
+        frameSource: { videoSha256: context.file.sha256, time: 1, frame: 30, fps: 30 },
+        width: platform === 'bilibili' ? 1600 : 1920,
+        height: platform === 'bilibili' ? 900 : 1080,
+        feedWidth: platform === 'bilibili' ? 1600 : 1920,
+        feedHeight: platform === 'bilibili' ? 1200 : 1080,
+        createdAt: new Date().toISOString(),
+        feedback: '',
+      }
+      let project = context.repository.save(
+        context.project.id,
+        'publish',
+        metadata,
+        context.project.revision,
+        randomUUID(),
+      )
+      project = context.repository.approve(
+        project.id,
+        'publish',
+        project.stages.publish!.id,
+        project.revision,
+        randomUUID(),
+      )
+      const record = context.service.start({
+        ...context.request,
+        expectedRevision: project.revision,
+        scheduleAt: new Date(Date.now() + 120000).toISOString(),
+      })
+      assert.equal(record.state, 'scheduled')
+      assert.equal(record.snapshot.cover.id, selected.id)
+      assert.equal(record.snapshot.metadata.cover?.platform, platform)
+      assert.equal(record.snapshot.metadata.cover?.frameSource?.frame, 30)
+      assert.equal(existsSync(join(context.root, 'calls')), false)
+      context.repository.save(
+        project.id,
+        'publish',
+        context.project.stages.publish!.payload,
+        project.revision,
+        randomUUID(),
+      )
+      assert.equal(record.snapshot.cover.id, selected.id)
+    } finally {
+      await context.close()
+    }
+  }
+})
+
 test('douyin rejects incompatible topic adapters and malformed names before starting the CLI upload', async () => {
   for (const mode of ['incompatible', 'invalid']) {
     const context = await fixture('douyin', mode === 'invalid' ? ['错误 话题'] : ['历史'])

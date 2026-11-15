@@ -7,6 +7,7 @@ import {
   splitNarration,
   type AudioPayload,
   type AudioTrack,
+  type AudioCorrection,
   type VideoProject,
   type WorkflowJob,
   type WorkflowRuntime,
@@ -67,14 +68,40 @@ export async function probeMedia(
 export function subtitleCues(tracks: AudioTrack[]) {
   let offset = 0
   const cues: { start: number; duration: number; text: string }[] = []
+  const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
   for (const track of tracks) {
-    const chunks = Array.from(track.text.replace(/\s+/g, ' ').trim())
-      .join('')
-      .match(/.{1,24}/gu) ?? ['']
+    const text = track.text.replace(/\s+/g, ' ').trim()
+    const tokens: string[] = []
+    let end = 0
+    // Keep alphabetic words whole; CJK text and emoji can still wrap at grapheme boundaries.
+    for (const word of text.matchAll(
+      /[\p{Script=Latin}\p{M}\p{N}]+(?:['’‐‑-][\p{Script=Latin}\p{M}\p{N}]+)*/gu,
+    )) {
+      tokens.push(
+        ...Array.from(graphemes.segment(text.slice(end, word.index)), (item) => item.segment),
+        word[0],
+      )
+      end = word.index + word[0].length
+    }
+    tokens.push(...Array.from(graphemes.segment(text.slice(end)), (item) => item.segment))
+    const chunks: string[] = []
+    let chunk = ''
+    for (const token of tokens) {
+      const closing = /^[,.;:!?，。；：！？、）】》」』”’]+$/u.test(token)
+      if (chunk.trim() && Array.from(chunk + token).length > 24 && !closing) {
+        chunks.push(chunk.trim())
+        chunk = ''
+      }
+      chunk += token
+    }
+    if (chunk.trim()) chunks.push(chunk.trim())
     const total = chunks.reduce((count, chunk) => count + Array.from(chunk).length, 0) || 1
     let position = offset
-    for (const chunk of chunks) {
-      const duration = (track.duration * Array.from(chunk).length) / total
+    for (const [index, chunk] of chunks.entries()) {
+      const duration =
+        index === chunks.length - 1
+          ? offset + track.duration - position
+          : (track.duration * Array.from(chunk).length) / total
       cues.push({ start: position, duration, text: chunk })
       position += duration
     }
@@ -99,6 +126,9 @@ export async function createWorkflowAudio(input: {
   progress?: (progress: { tracks: AudioTrack[]; total: number }) => void | Promise<void>
   imports?: string[]
   audioTrackId?: string
+  audioTrackIds?: string[]
+  correction?: AudioCorrection
+  corrections?: Record<string, AudioCorrection>
 }): Promise<AudioPayload> {
   const {
     project,
@@ -111,15 +141,18 @@ export async function createWorkflowAudio(input: {
     signal,
     phase,
     imports,
-    audioTrackId,
+    audioTrackId: requestedTrackId,
+    correction: requestedCorrection,
   } = input
+  const audioTrackIds = input.audioTrackIds ?? (requestedTrackId ? [requestedTrackId] : [])
+  const audioTrackId = audioTrackIds[0]
   const scenes = stageValue(project, 'narration')!.scenes
   const previous = audioTrackId ? stageValue(project, 'audio') : undefined
   if (
     audioTrackId &&
     (imports ||
       project.stages.audio?.status === 'stale' ||
-      !previous?.tracks.some((track) => track.file.id === audioTrackId))
+      audioTrackIds.some((id) => !previous?.tracks.some((track) => track.file.id === id)))
   )
     throw new Error('请选择当前完整配音中的有效片段')
   if (imports && imports.length !== scenes.length)
@@ -153,7 +186,7 @@ export async function createWorkflowAudio(input: {
         chunkIndex: index,
         text: track.text,
         source: undefined as string | undefined,
-        reuse: track.file.id === audioTrackId ? undefined : track,
+        reuse: audioTrackIds.includes(track.file.id) ? undefined : track,
       }))
     : scenes.flatMap((scene, sceneIndex) =>
         (imports ? [scene.text] : splitNarration(scene.text)).map((text, chunkIndex) => ({
@@ -168,7 +201,7 @@ export async function createWorkflowAudio(input: {
   const trackCount = segments.length
   let total = 0
   mkdirSync(cwd, { recursive: true })
-  for (const [segmentIndex, segment] of segments.entries()) {
+  segmentLoop: for (const [segmentIndex, segment] of segments.entries()) {
     const { sceneId, sceneIndex, chunkIndex, text, reuse } = segment
     signal.throwIfAborted()
     if (reuse) {
@@ -184,133 +217,148 @@ export async function createWorkflowAudio(input: {
         ? `正在重新生成第 ${segmentIndex + 1} / ${trackCount} 段配音`
         : `配音 ${sceneIndex + 1}/${scenes.length} 镜 · 第 ${chunkIndex + 1} 段`,
     )
-    let source = segment.source
-    if (!source) {
-      const segmentVoice =
-        voice.engine === 'edge'
-          ? voice
-          : {
-              ...voice,
-              options: {
-                ...voice.options,
-                seed: workflowVoiceSeed(
-                  voice.options.seed ?? 42,
-                  segmentIndex,
-                  text,
-                  audioTrackId ? job.id : '',
-                ),
-              },
+    const sourceTrack = previous?.tracks[segmentIndex]
+    const correction =
+      (sourceTrack && input.corrections?.[sourceTrack.file.id]) ??
+      requestedCorrection ??
+      sourceTrack?.correction
+    const parts = correction ? correction.parts : [{ text, pauseAfterMs: 0 }]
+    const partPaths: string[] = []
+    for (const [partIndex, part] of parts.entries()) {
+      const synthesisText = part.text
+      let source = segment.source
+      if (!source) {
+        const segmentVoice =
+          voice.engine === 'edge'
+            ? voice
+            : {
+                ...voice,
+                options: {
+                  ...voice.options,
+                  seed: workflowVoiceSeed(
+                    voice.options.seed ?? 42,
+                    segmentIndex,
+                    synthesisText,
+                    correction ? `${job.id}:${partIndex}` : audioTrackId ? job.id : '',
+                  ),
+                },
+              }
+        const request = resolveVoiceRequest({
+          ...segmentVoice,
+          text: synthesisText,
+          clientRequestId: `workflow:${job.id}:${sceneIndex}:${chunkIndex}${correction ? `:part:${partIndex}` : ''}`,
+        })
+        let completed: AudioTrack | undefined
+        if (!audioTrackId) {
+          for (const previousJob of project.jobs) {
+            if (
+              previousJob.stage !== 'audio' ||
+              previousJob.state !== 'failed' ||
+              previousJob.expectedRevision !== job.expectedRevision
+            )
+              continue
+            const track = previousJob.audioProgress?.tracks[segmentIndex]
+            if (!track || track.sceneId !== sceneId || track.text !== text) continue
+            const prior = service.repository.byRequest(
+              `workflow:${previousJob.id}:${sceneIndex}:${chunkIndex}`,
+            )
+            if (!prior || prior.state !== 'succeeded') continue
+            const sameVoice = (
+              ['engine', 'voiceId', 'voiceDesign', 'profileId', 'profileRevision'] as const
+            ).every((key) => prior.request[key] === request[key])
+            if (
+              !sameVoice ||
+              JSON.stringify(resolveVoiceRequest(prior.request).options) !==
+                JSON.stringify(request.options)
+            )
+              continue
+            try {
+              await files.verify(project.id, track.file)
+              completed = track
+              break
+            } catch {
+              signal.throwIfAborted()
             }
-      const request = resolveVoiceRequest({
-        ...segmentVoice,
-        text,
-        clientRequestId: `workflow:${job.id}:${sceneIndex}:${chunkIndex}`,
-      })
-      let completed: AudioTrack | undefined
-      if (!audioTrackId) {
-        for (const previousJob of project.jobs) {
-          if (
-            previousJob.stage !== 'audio' ||
-            previousJob.state !== 'failed' ||
-            previousJob.expectedRevision !== job.expectedRevision
-          )
-            continue
-          const track = previousJob.audioProgress?.tracks[segmentIndex]
-          if (!track || track.sceneId !== sceneId || track.text !== text) continue
-          const prior = service.repository.byRequest(
-            `workflow:${previousJob.id}:${sceneIndex}:${chunkIndex}`,
-          )
-          if (!prior || prior.state !== 'succeeded') continue
-          const sameVoice = (
-            ['engine', 'voiceId', 'voiceDesign', 'profileId', 'profileRevision'] as const
-          ).every((key) => prior.request[key] === request[key])
-          if (
-            !sameVoice ||
-            JSON.stringify(resolveVoiceRequest(prior.request).options) !==
-              JSON.stringify(request.options)
-          )
-            continue
-          try {
-            await files.verify(project.id, track.file)
-            completed = track
-            break
-          } catch {
-            signal.throwIfAborted()
           }
         }
-      }
-      if (completed) {
-        phase(`复用已完成配音 ${segmentIndex + 1}/${trackCount}，音色参数与文件校验一致`)
-        total += completed.duration
-        if (total > 300) throw new Error('实际配音超过 5 分钟，请缩短口播后重新生成')
-        normalized.push(files.path(completed.file))
-        tracks.push(completed)
-        await input.progress?.({ tracks: [...tracks], total: trackCount })
-        continue
-      }
-      const voiceJob = await service.create(request)
-      const cancel = () => {
-        service.jobs.cancel(voiceJob.id)
-      }
-      signal.addEventListener('abort', cancel, { once: true })
-      try {
-        let state = voiceJob
-        let lastPhase = ''
-        while (!VOICE_TERMINAL.includes(state.state)) {
-          if (state.phase !== lastPhase) {
-            phase(`配音 ${sceneIndex + 1}/${scenes.length} 镜 · ${state.phase}`)
-            lastPhase = state.phase
-          }
-          await delay(350, undefined, { signal })
-          state = service.jobs.get(voiceJob.id)!
+        if (completed) {
+          phase(`复用已完成配音 ${segmentIndex + 1}/${trackCount}，音色参数与文件校验一致`)
+          total += completed.duration
+          if (total > 300) throw new Error('实际配音超过 5 分钟，请缩短口播后重新生成')
+          normalized.push(files.path(completed.file))
+          tracks.push(completed)
+          await input.progress?.({ tracks: [...tracks], total: trackCount })
+          continue segmentLoop
         }
-        if (state.state !== 'succeeded' || !state.assetId)
-          throw new Error(
-            `第 ${sceneIndex + 1} 镜第 ${chunkIndex + 1} 段：${state.error ?? `配音${state.phase}`}。已完成片段保留，原音色与文案重试可复用。`,
-          )
-        source = managedPath(service.root, service.assets.asset(state.assetId).file_path)
-      } finally {
-        signal.removeEventListener('abort', cancel)
-        if (signal.aborted) service.jobs.cancel(voiceJob.id)
+        const voiceJob = await service.create(request)
+        const cancel = () => {
+          service.jobs.cancel(voiceJob.id)
+        }
+        signal.addEventListener('abort', cancel, { once: true })
+        try {
+          let state = voiceJob
+          let lastPhase = ''
+          while (!VOICE_TERMINAL.includes(state.state)) {
+            if (state.phase !== lastPhase) {
+              phase(`配音 ${sceneIndex + 1}/${scenes.length} 镜 · ${state.phase}`)
+              lastPhase = state.phase
+            }
+            await delay(350, undefined, { signal })
+            state = service.jobs.get(voiceJob.id)!
+          }
+          if (state.state !== 'succeeded' || !state.assetId)
+            throw new Error(
+              `第 ${sceneIndex + 1} 镜第 ${chunkIndex + 1} 段：${state.error ?? `配音${state.phase}`}。已完成片段保留，原音色与文案重试可复用。`,
+            )
+          source = managedPath(service.root, service.assets.asset(state.assetId).file_path)
+        } finally {
+          signal.removeEventListener('abort', cancel)
+          if (signal.aborted) service.jobs.cancel(voiceJob.id)
+        }
       }
+      await probeMedia(runtime, source, cwd, signal)
+      const path = join(cwd, `audio-${tracks.length}-${partIndex}.wav`)
+      await workflowCommand(
+        runtime.ffmpegPath,
+        [
+          '-nostdin',
+          '-y',
+          '-i',
+          source,
+          ...(part.pauseAfterMs ? ['-af', `apad=pad_dur=${part.pauseAfterMs / 1000}`] : []),
+          '-vn',
+          '-ac',
+          '1',
+          '-ar',
+          '48000',
+          '-c:a',
+          'pcm_s16le',
+          path,
+        ],
+        { cwd, signal, timeout: 60000 },
+      )
+      partPaths.push(path)
     }
-    await probeMedia(runtime, source, cwd, signal)
-    const path = join(cwd, `audio-${tracks.length}.wav`)
-    await workflowCommand(
-      runtime.ffmpegPath,
-      [
-        '-nostdin',
-        '-y',
-        '-i',
-        source,
-        '-vn',
-        '-ac',
-        '1',
-        '-ar',
-        '48000',
-        '-c:a',
-        'pcm_s16le',
-        path,
-      ],
-      { cwd, signal, timeout: 60000 },
-    )
+    const path =
+      partPaths.length === 1
+        ? partPaths[0]
+        : await mergeAudio(partPaths, join(cwd, `audio-${tracks.length}.wav`), runtime, cwd, signal)
     const { duration } = await probeMedia(runtime, path, cwd, signal)
     total += duration
     if (total > 300) throw new Error('实际配音超过 5 分钟，请缩短口播后重新生成')
     normalized.push(path)
-    tracks.push({ sceneId, text, duration, file: await files.import(project.id, path) })
+    tracks.push({
+      sceneId,
+      text,
+      duration,
+      file: await files.import(project.id, path),
+      ...(correction ? { correction } : {}),
+    })
     signal.throwIfAborted()
     await input.progress?.({ tracks: [...tracks], total: trackCount })
   }
-  const list = join(cwd, 'concat.txt')
-  writeFileSync(list, normalized.map((path) => `file '${path.replace(/'/g, "'\\''")}'`).join('\n'))
-  const combined = join(cwd, 'narration.wav')
   phase('合并音轨与字幕，校验真实时长')
-  await workflowCommand(
-    runtime.ffmpegPath,
-    ['-nostdin', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c:a', 'pcm_s16le', combined],
-    { cwd, signal, timeout: 60000 },
-  )
+  const combined = await mergeAudio(normalized, join(cwd, 'narration.wav'), runtime, cwd, signal)
   const { duration } = await probeMedia(runtime, combined, cwd, signal)
   const subtitles = subtitleCues(tracks)
     .map(
@@ -325,4 +373,21 @@ export async function createWorkflowAudio(input: {
     duration,
     ...(imports ? {} : { voice }),
   }
+}
+
+async function mergeAudio(
+  paths: string[],
+  output: string,
+  runtime: WorkflowRuntime,
+  cwd: string,
+  signal: AbortSignal,
+) {
+  const list = `${output}.concat.txt`
+  writeFileSync(list, paths.map((path) => `file '${path.replace(/'/g, "'\\''")}'`).join('\n'))
+  await workflowCommand(
+    runtime.ffmpegPath,
+    ['-nostdin', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c:a', 'pcm_s16le', output],
+    { cwd, signal, timeout: 60000 },
+  )
+  return output
 }

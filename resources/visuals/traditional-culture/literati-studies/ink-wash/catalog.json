@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "crabapple-sparrow",
+      "name": "海棠春雀",
+      "category": "figures",
+      "theme": "春花 / 栗羽与胭脂",
+      "note": "斜枝海棠承接一只停栖麻雀，花叶、脚趾与枝干有实际附着。",
+      "svg": "crabapple-sparrow.svg",
+      "png": "crabapple-sparrow.png"
+    },
+    {
+      "id": "finger-citron-dish",
+      "name": "佛手清供",
+      "category": "color",
+      "theme": "佛手 / 金黄与青釉",
+      "note": "果体连续分出卷曲指状裂瓣，以黄赭转面和青瓷浅盘体现清供。",
+      "svg": "finger-citron-dish.svg",
+      "png": "finger-citron-dish.png"
+    },
+    {
+      "id": "lingzhi-scholar-stone",
+      "name": "灵芝寿石",
+      "category": "ink",
+      "theme": "寿石 / 赭红与青灰",
+      "note": "灵芝菌盖与柄连续生长，层纹随盖曲面；怪石有转面与凹处。",
+      "svg": "lingzhi-scholar-stone.svg",
+      "png": "lingzhi-scholar-stone.png"
+    },
+    {
+      "id": "cricket-autumn-grass",
+      "name": "蟋蟀秋草",
+      "category": "figures",
+      "theme": "秋虫 / 草穗与石隙",
+      "note": "长触须、折叠后腿和翅脉区分蟋蟀，秋草长短浓淡有别。",
+      "svg": "cricket-autumn-grass.svg",
+      "png": "cricket-autumn-grass.png"
+    },
+    {
+      "id": "daylily-dragonfly",
+      "name": "萱草蜻蜓",
+      "category": "color",
+      "theme": "萱草 / 金瓣与透明翅",
+      "note": "六瓣萱花和弧形带叶错落，蜻蜓胸腹与两对翅相接。",
+      "svg": "daylily-dragonfly.svg",
+      "png": "daylily-dragonfly.png"
+    },
+    {
+      "id": "kingfisher-reeds",
+      "name": "秋浦翠鸟",
+      "category": "figures",
+      "theme": "翠鸟 / 石青与橙赭",
+      "note": "长尖喙、短颈和紧实躯干体现翠鸟，脚趾扣住斜枝，翅背点翠。",
+      "svg": "kingfisher-reeds.svg",
+      "png": "kingfisher-reeds.png"
+    },
+    {
+      "id": "lacquer-carry-box",
+      "name": "朱漆提盒",
+      "category": "color",
+      "theme": "食盒 / 朱漆与竹木",
+      "note": "三层盒体和盖沿共用方向，前后提架落到盒侧，不以花纹代替器形。",
+      "svg": "lacquer-carry-box.svg",
+      "png": "lacquer-carry-box.png"
+    },
+    {
+      "id": "embroidered-silk-pouch",
+      "name": "绣囊丝结",
+      "category": "color",
+      "theme": "香囊 / 靛绢与藕粉",
+      "note": "绣花附着囊面，褶口束绳、盘结与两束参差流苏连续连接。",
+      "svg": "embroidered-silk-pouch.svg",
+      "png": "embroidered-silk-pouch.png"
+    },
+    {
+      "id": "celadon-ewer-bowl",
+      "name": "青瓷注碗",
+      "category": "color",
+      "theme": "注子 / 青釉与茶色",
+      "note": "注子置温碗内，以釉色、曲柄、流口与茶盏表现器物关系，非特定出土器复原。",
+      "svg": "celadon-ewer-bowl.svg",
+      "png": "celadon-ewer-bowl.png"
+    },
+    {
+      "id": "landscape-folding-fan",
+      "name": "折扇清风",
+      "category": "color",
+      "theme": "折扇 / 墨山与竹骨",
+      "note": "同一扇钉汇聚扇骨，扇面山水限制在折纸边界内，竹护骨和穗结相承。",
+      "svg": "landscape-folding-fan.svg",
+      "png": "landscape-folding-fan.png"
+    },
+    {
+      "id": "awning-boat-stone-bridge",
+      "name": "乌篷桥影",
+      "category": "ink",
+      "theme": "水乡 / 石拱与乌篷",
+      "note": "石桥拱圈和栏杆同弧，桥脚落岸，深色船篷与木船身共同接水。",
+      "svg": "awning-boat-stone-bridge.svg",
+      "png": "awning-boat-stone-bridge.png"
+    },
+    {
+      "id": "bamboo-raft-creek",
+      "name": "竹筏青溪",
+      "category": "ink",
+      "theme": "溪行 / 竹筏与青山",
+      "note": "成束竹竿、横扎绳、篓与长篙组成近筏，青峰和岸竹分出远近。",
+      "svg": "bamboo-raft-creek.svg",
+      "png": "bamboo-raft-creek.png"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "xiang-yu-chu-campaign",
+      "png": "xiang-yu-chu-campaign.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 425986,
+      "transparent": 1174014
+    },
+    {
+      "id": "liu-bang-han-founder",
+      "png": "liu-bang-han-founder.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 294123,
+      "transparent": 1305877
+    },
+    {
+      "id": "zhang-liang-strategist",
+      "png": "zhang-liang-strategist.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 242482,
+      "transparent": 1357474
+    },
+    {
+      "id": "li-guang-frontier-archer",
+      "png": "li-guang-frontier-archer.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 273341,
+      "transparent": 1326659
+    },
+    {
+      "id": "han-xin-campaign-strategy",
+      "png": "han-xin-campaign-strategy.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 259149,
+      "transparent": 1340851
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "mulberry-silkworm",
+      "name": "桑葚春蚕",
+      "category": "color",
+      "theme": "桑蚕 / 紫果与柔白",
+      "note": "锯齿桑叶与成串紫果附枝，蚕体伏在叶面，以体节和胸足说明结构。",
+      "svg": "mulberry-silkworm.svg",
+      "png": "mulberry-silkworm.png"
+    },
+    {
+      "id": "gardenia-ivory",
+      "name": "栀子凝香",
+      "category": "color",
+      "theme": "栀子 / 象牙白与深叶",
+      "note": "叠瓣白花、尖蕾和深绿叶形成疏密关系，白瓣保持实体色。",
+      "svg": "gardenia-ivory.svg",
+      "png": "gardenia-ivory.png"
+    },
+    {
+      "id": "trumpet-vine-orange",
+      "name": "凌霄映夏",
+      "category": "color",
+      "theme": "藤花 / 橙赭与复叶",
+      "note": "木质攀枝承接羽状复叶与喇叭花，花筒连到花冠而不悬浮。",
+      "svg": "trumpet-vine-orange.svg",
+      "png": "trumpet-vine-orange.png"
+    },
+    {
+      "id": "bulbul-autumn-branch",
+      "name": "白头秋枝",
+      "category": "figures",
+      "theme": "白头翁 / 浅冠与栗枝",
+      "note": "白头翁的冠斑、长尾与短喙区别于前辑小鸟，脚爪扣住秋枝。",
+      "svg": "bulbul-autumn-branch.svg",
+      "png": "bulbul-autumn-branch.png"
+    },
+    {
+      "id": "frog-lotus-leaf",
+      "name": "荷钱听蛙",
+      "category": "figures",
+      "theme": "青蛙 / 褶腿与荷叶",
+      "note": "低伏青蛙以鼓眼、短前足和折叠后腿表现体积，荷叶承接足部。",
+      "svg": "frog-lotus-leaf.svg",
+      "png": "frog-lotus-leaf.png"
+    },
+    {
+      "id": "turtle-resting-stone",
+      "name": "灵龟探石",
+      "category": "figures",
+      "theme": "龟石 / 甲褐与青灰",
+      "note": "穹隆背甲、短足、尾和伸出的头颈构成连贯龟形，腹面落在石上。",
+      "svg": "turtle-resting-stone.svg",
+      "png": "turtle-resting-stone.png"
+    },
+    {
+      "id": "bronze-gu-vessel",
+      "name": "铜觚清影",
+      "category": "color",
+      "theme": "铜觚 / 暗金与铜绿",
+      "note": "喇叭口、束腰与外撇圈足同轴连续，器口有内壁，纹饰为原创简化。",
+      "svg": "bronze-gu-vessel.svg",
+      "png": "bronze-gu-vessel.png"
+    },
+    {
+      "id": "earthen-steamer",
+      "name": "陶甑炊烟",
+      "category": "color",
+      "theme": "炊器 / 陶赭与淡汽",
+      "note": "上甑下釜叠置，耳与器壁连接，甑底孔和石支承表现装饰性炊蒸意象。",
+      "svg": "earthen-steamer.svg",
+      "png": "earthen-steamer.png"
+    },
+    {
+      "id": "bamboo-xiao-case",
+      "name": "竹箫流韵",
+      "category": "color",
+      "theme": "洞箫 / 竹褐与绛绦",
+      "note": "竹节、吹口与指孔沿同一管身，配布套和绦穗，非特定古箫形制复原。",
+      "svg": "bamboo-xiao-case.svg",
+      "png": "bamboo-xiao-case.png"
+    },
+    {
+      "id": "folding-landscape-screen",
+      "name": "屏上远岫",
+      "category": "color",
+      "theme": "屏风 / 木框与山水",
+      "note": "三折屏风以连续铰接和交替面向表现空间，屏内绘画限制在实体绢面。",
+      "svg": "folding-landscape-screen.svg",
+      "png": "folding-landscape-screen.png"
+    },
+    {
+      "id": "winnowing-grain-measure",
+      "name": "谷斗丰登",
+      "category": "color",
+      "theme": "丰收 / 竹箕与木斗",
+      "note": "编竹簸箕与方木量斗呈现口沿、内腔、板厚和谷粒，非标准容量示意。",
+      "svg": "winnowing-grain-measure.svg",
+      "png": "winnowing-grain-measure.png"
+    },
+    {
+      "id": "thatched-cottage-gate",
+      "name": "茅舍柴扉",
+      "category": "ink",
+      "theme": "乡居 / 茅顶与柴篱",
+      "note": "茅舍、梁柱、屋面与墙体使用共同投影，门口踏石和柴篱承接地面。",
+      "svg": "thatched-cottage-gate.svg",
+      "png": "thatched-cottage-gate.png"
+    }
+  ]
+}

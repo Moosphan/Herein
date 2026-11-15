@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "style": "figurative-colored-ink",
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "han-wudi-impression",
+      "name": "汉武帝 · 观远",
+      "note": "玄衣赭领 · 手持竹简 · 沉静帝王意象",
+      "seed": 10031,
+      "svg": "han-wudi-impression.svg",
+      "png": "han-wudi-impression.png"
+    },
+    {
+      "id": "huo-qubing-impression",
+      "name": "霍去病 · 出塞",
+      "note": "少年骑将 · 青灰甲胄 · 朱红披风",
+      "seed": 10039,
+      "svg": "huo-qubing-impression.svg",
+      "png": "huo-qubing-impression.png"
+    },
+    {
+      "id": "red-hare-gallop",
+      "name": "赤兔 · 追风",
+      "note": "赤栗马身 · 飞鬃扬尾 · 腾跃伸展",
+      "seed": 10037,
+      "svg": "red-hare-gallop.svg",
+      "png": "red-hare-gallop.png"
+    }
+  ]
+}

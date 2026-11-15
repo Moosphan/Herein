@@ -14,6 +14,7 @@ import { WorkflowDialog } from './WorkflowDialog'
 import { workflowCall } from './useWorkflow'
 import { useWorkflowAgent } from './useWorkflowAgent'
 import { useRenderEngine } from './useRenderEngine'
+import { productionRevision, productionReady } from '@shared/video-production'
 
 export function RenderActions({
   project,
@@ -38,7 +39,11 @@ export function RenderActions({
   const [renderEngine] = useRenderEngine(project)
   const native = renderEngine === 'remotion'
   const sourceEngine =
-    stageValue(project, final ? 'render' : 'roughcut')?.renderEngine ?? 'hyperframes'
+    (
+      productionRevision(project)?.payload as
+        | import('@shared/video-workflow').RenderPayload
+        | undefined
+    )?.renderEngine ?? 'hyperframes'
   const [templateOpen, setTemplateOpen] = useState(false)
   const [name, setName] = useState(project.title.slice(0, 75) + ' · 风格')
   const [description, setDescription] = useState('')
@@ -86,7 +91,7 @@ export function RenderActions({
     if (
       await run(
         () => workflowCall('discardMotionPlans', project.id, project.revision),
-        '修改计划已取消，保留原粗剪；可审核通过后进入正式成片，无需重新合成',
+        '修改计划已取消，保留原视频；审核通过后直接进入发布，无需重新合成',
       )
     ) {
       clearFeedback()
@@ -124,14 +129,19 @@ export function RenderActions({
             disabled={locked}
             onClick={() =>
               void run(
-                () => workflowCall('exportComposition', project.id, final ? 'render' : 'roughcut'),
+                () =>
+                  workflowCall(
+                    'exportComposition',
+                    project.id,
+                    productionRevision(project)?.stage ?? 'roughcut',
+                  ),
                 '工程副本已导出，原审核版本保持不变',
               )
             }
           >
             导出可编辑工程
           </Button>
-          {final && (
+          {productionReady(project) && (
             <Button
               ref={templateButton}
               size="sm"
@@ -250,8 +260,8 @@ export function RenderActions({
                   <strong className="text-body-sm">修改计划 · 尚未应用到视频</strong>
                   <p className="workflow-muted">
                     计划覆盖 {plan.scenes.length} /{' '}
-                    {stageValue(project, 'storyboard')?.scenes.length ?? 0} 镜。 当前视频仍为粗剪 v
-                    {project.stages.roughcut?.version}；确认后才合成新版，不会自动审核。
+                    {stageValue(project, 'storyboard')?.scenes.length ?? 0} 镜。 当前视频仍为 v
+                    {productionRevision(project)?.version}；确认后才制作新版，不会自动审核。
                   </p>
                   <p className="text-body-sm whitespace-pre-wrap">{plan.summary}</p>
                   <p className="workflow-muted">原始意见：{plan.feedback}</p>
@@ -302,18 +312,18 @@ export function RenderActions({
                               renderEngine,
                               motionPlanJobId: latestPlan!.id,
                             }),
-                          '正在生成新版粗剪；旧版本保留，新版需要重新审核',
+                          '正在制作新版视频；旧版本保留，新版需要重新审核',
                         )
                       }
                     >
-                      确认计划，生成粗剪 v{(project.stages.roughcut?.version ?? 0) + 1}
+                      确认计划，制作视频 v{(project.stages.roughcut?.version ?? 0) + 1}
                     </Button>
                   </div>
                 </div>
               )}
               {latestPlan?.state === 'cancelled' && project.stages.roughcut?.status !== 'stale' && (
                 <p className="workflow-muted">
-                  修改计划已取消，原视频与历史保留。可审核通过当前版本后进入正式成片，无需重新合成。
+                  修改计划已取消，原视频与历史保留。可审核通过当前版本后直接发布，无需重新合成。
                 </p>
               )}
               {latestPlan &&

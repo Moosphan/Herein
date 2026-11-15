@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "scholar-reading-scroll",
+      "name": "文士展卷",
+      "theme": "人物与衣冠 · 文人士人",
+      "category": "figures",
+      "note": "靛青衣袍 · 成熟面骨 · 双手展卷，非特定人物肖像",
+      "svg": "scholar-reading-scroll.svg",
+      "png": "scholar-reading-scroll.png"
+    },
+    {
+      "id": "musician-playing-qin",
+      "name": "女乐抚琴",
+      "theme": "人物与衣冠 · 艺术生活",
+      "category": "figures",
+      "note": "烟紫衣裙 · 低眉专注 · 琴弦与指下动作，通用人物意象",
+      "svg": "musician-playing-qin.svg",
+      "png": "musician-playing-qin.png"
+    },
+    {
+      "id": "crane-in-reeds",
+      "name": "芦汀鹤立",
+      "theme": "山川与自然 · 飞禽走兽",
+      "category": "figures",
+      "note": "月白羽面 · 焦墨翼羽 · 曲颈与支撑足",
+      "svg": "crane-in-reeds.svg",
+      "png": "crane-in-reeds.png"
+    },
+    {
+      "id": "deer-under-autumn-light",
+      "name": "秋原鹿鸣",
+      "theme": "山川与自然 · 飞禽走兽",
+      "category": "figures",
+      "note": "赭金皮毛 · 不对称角枝 · 轻步凝望",
+      "svg": "deer-under-autumn-light.svg",
+      "png": "deer-under-autumn-light.png"
+    },
+    {
+      "id": "beacon-at-sunset",
+      "name": "关山烽燧",
+      "theme": "建筑与历史空间 · 关隘边防",
+      "category": "ink",
+      "note": "土黄夯墙 · 暖赭落日 · 青灰远岭，原创边塞意象",
+      "svg": "beacon-at-sunset.svg",
+      "png": "beacon-at-sunset.png"
+    },
+    {
+      "id": "willow-river-fisher",
+      "name": "柳岸渔舟",
+      "theme": "军事与交通 · 舟船水路",
+      "category": "ink",
+      "note": "柳丝斜垂 · 青灰江山 · 一叶渔舟与垂钓者",
+      "svg": "willow-river-fisher.svg",
+      "png": "willow-river-fisher.png"
+    },
+    {
+      "id": "bronze-ritual-ding",
+      "name": "青铜鼎影",
+      "theme": "文字制度与器用 · 礼器青铜",
+      "category": "color",
+      "note": "铜褐暗金 · 局部铜绿 · 三足承重，非特定出土器物复原",
+      "svg": "bronze-ritual-ding.svg",
+      "png": "bronze-ritual-ding.png"
+    },
+    {
+      "id": "golden-chrysanthemums",
+      "name": "篱菊映石",
+      "theme": "山川与自然 · 花卉园圃",
+      "category": "color",
+      "note": "秋金重瓣 · 竹青叶面 · 灰青湖石",
+      "svg": "golden-chrysanthemums.svg",
+      "png": "golden-chrysanthemums.png"
+    }
+  ]
+}

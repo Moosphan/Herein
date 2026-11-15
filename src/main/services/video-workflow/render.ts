@@ -28,6 +28,8 @@ import { workflowCommand } from './process'
 import { probeMedia, subtitleCues } from './audio'
 import { defaultMotion, prepareMotionScene, mergeMotion } from './motion'
 import { authorNativeComposition } from './remotion-authoring'
+import type { NativeAttemptOptions } from './remotion-repair'
+import type { NativeMaterial } from '../../../shared/video-materials'
 
 type TransitionKeyframe = { opacity?: number; translate?: string; clipPath?: string }
 
@@ -335,7 +337,8 @@ export async function renderWorkflow(input: {
   motion?: MotionPlan
   music?: RenderMusic
   renderEngine?: VideoRenderEngine
-  createNative?: (prompt: string) => Promise<unknown>
+  createNative?: (prompt: string, options: NativeAttemptOptions) => Promise<unknown>
+  nativeMaterials?: NativeMaterial[]
 }): Promise<RenderPayload> {
   const { project, final, files, runtime, cwd, signal, phase, music } = input
   const frame = final
@@ -357,6 +360,7 @@ export async function renderWorkflow(input: {
     compositionNames: string[] = [],
     cover: WorkflowFile,
     motion: MotionPlan | undefined
+  let nativeRendered = false
   const targetDuration = final
     ? stageValue(project, 'roughcut')!.duration
     : stageValue(project, 'audio')!.duration
@@ -386,6 +390,28 @@ export async function renderWorkflow(input: {
     motion = roughcut.motion
     for (const [index, file] of compositionFiles.entries())
       copyFileSync(await files.verify(project.id, file), join(cwd, compositionNames[index]))
+    // A frozen source can already contain music. Replace/remove it instead of stacking tracks.
+    if (roughcut.music) {
+      const index = compositionNames.indexOf(
+        engine === 'remotion' ? 'composition.json' : 'index.html',
+      )
+      if (index < 0) throw new Error('冻结工程缺少配乐配置入口')
+      const path = join(cwd, compositionNames[index])
+      if (engine === 'remotion') {
+        const settings = JSON.parse(readFileSync(path, 'utf8'))
+        delete settings.music
+        writeFileSync(path, JSON.stringify(settings))
+      } else {
+        writeFileSync(
+          path,
+          readFileSync(path, 'utf8').replace(
+            /<audio\b[^>]*\bid=["']music["'][^>]*>[\s\S]*?<\/audio>/gi,
+            '',
+          ),
+        )
+      }
+      compositionFiles[index] = await files.import(project.id, path)
+    }
     if (music) {
       const musicName = `music${extname(music.file.path).toLowerCase()}`
       copyFileSync(await files.verify(project.id, music.file), join(cwd, musicName))
@@ -409,8 +435,13 @@ export async function renderWorkflow(input: {
         writeFileSync(join(cwd, 'index.html'), document)
         compositionFiles[index] = await files.import(project.id, join(cwd, 'index.html'))
       }
-      compositionFiles.push(await files.import(project.id, join(cwd, musicName)))
-      compositionNames.push(musicName)
+      const musicFile = await files.import(project.id, join(cwd, musicName))
+      const musicIndex = compositionNames.indexOf(musicName)
+      if (musicIndex >= 0) compositionFiles[musicIndex] = musicFile
+      else {
+        compositionFiles.push(musicFile)
+        compositionNames.push(musicName)
+      }
     }
   } else if (engine === 'remotion' && input.createNative) {
     compositionNames = await authorNativeComposition({
@@ -421,9 +452,14 @@ export async function renderWorkflow(input: {
       signal,
       phase,
       motion: input.motion,
+      materials: input.nativeMaterials,
       create: input.createNative,
+      render: async ({ signal }) => {
+        await renderRemotion(runtime, cwd, signal, false, phase)
+      },
       capture: (html, title) => captureStoryboard(html, signal, title, frame),
     })
+    nativeRendered = true
     for (const name of compositionNames)
       compositionFiles.push(await files.import(project.id, join(cwd, name)))
     cover = compositionFiles[compositionNames.indexOf('reference-0.png')]
@@ -437,6 +473,7 @@ export async function renderWorkflow(input: {
       compositionFiles[index] = await files.import(project.id, join(cwd, 'composition.json'))
       compositionNames.push(name)
       compositionFiles.push(await files.import(project.id, join(cwd, name)))
+      nativeRendered = false
     }
   } else {
     const storyboard = stageValue(project, 'storyboard')!,
@@ -557,15 +594,19 @@ export async function renderWorkflow(input: {
       : hasMotion
         ? 'waapi'
         : undefined,
+    ...(compositionNames.includes('visuals.tsx')
+      ? { nativeCreation: JSON.parse(readFileSync(join(cwd, 'composition.json'), 'utf8')).creation }
+      : {}),
   })
   const output = join(cwd, final ? 'final.mp4' : 'roughcut.mp4')
   const renderProfile = {
-    quality: final ? ('delivery' as const) : ('looks' as const),
+    quality: 'delivery' as const,
     fps: 30 as const,
   }
   phase(`${final ? '渲染最终成片' : '渲染粗剪'} · ${frame.width}×${frame.height} / 30 fps`)
-  if (engine === 'remotion') await renderRemotion(runtime, cwd, signal, final, phase)
-  else
+  if (engine === 'remotion') {
+    if (!nativeRendered) await renderRemotion(runtime, cwd, signal, final, phase)
+  } else
     await hyperframes(
       runtime,
       [
@@ -619,6 +660,13 @@ export async function renderWorkflow(input: {
   }
   return {
     renderEngine: engine,
+    ...(engine === 'remotion'
+      ? {
+          nativeMaterials: final
+            ? (stageValue(project, 'roughcut')!.nativeMaterials ?? [])
+            : (input.nativeMaterials ?? []),
+        }
+      : {}),
     file: await files.import(project.id, output),
     duration: probed.duration,
     width: frame.width,

@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "azalea-red-stone",
+      "png": "azalea-red-stone.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 193289,
+      "transparent": 1398520
+    },
+    {
+      "id": "hibiscus-autumn-pink",
+      "png": "hibiscus-autumn-pink.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 224578,
+      "transparent": 1370447
+    },
+    {
+      "id": "jujube-autumn-fruit",
+      "png": "jujube-autumn-fruit.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 80699,
+      "transparent": 1518280
+    },
+    {
+      "id": "lychee-cluster-crimson",
+      "png": "lychee-cluster-crimson.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 126539,
+      "transparent": 1471745
+    },
+    {
+      "id": "quails-autumn-field",
+      "png": "quails-autumn-field.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 212091,
+      "transparent": 1376868
+    },
+    {
+      "id": "reed-crabs-shallow-water",
+      "png": "reed-crabs-shallow-water.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 156029,
+      "transparent": 1441836
+    },
+    {
+      "id": "ruan-pearl-inlay",
+      "png": "ruan-pearl-inlay.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 108264,
+      "transparent": 1491076
+    },
+    {
+      "id": "zisha-teapot-slab",
+      "png": "zisha-teapot-slab.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 183236,
+      "transparent": 1416626
+    },
+    {
+      "id": "incense-seal-tray",
+      "png": "incense-seal-tray.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 153551,
+      "transparent": 1440844
+    },
+    {
+      "id": "wooden-clogs-moss",
+      "png": "wooden-clogs-moss.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 189199,
+      "transparent": 1408958
+    },
+    {
+      "id": "woven-fishing-creel",
+      "png": "woven-fishing-creel.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 191034,
+      "transparent": 1408638
+    },
+    {
+      "id": "windlass-stone-well",
+      "png": "windlass-stone-well.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 245620,
+      "transparent": 1344201
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

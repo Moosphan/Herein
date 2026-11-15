@@ -33,7 +33,9 @@ Headless 默认带有文件、shell、联网与子任务能力。视频工作流
 
 ## 凭据与验证边界
 
-[发布版 headless 配置](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-rc.5/packages/bundle/headless/cordis.patch.yml) 禁用交互凭据存储；API key 来自启动环境、调用目录 `.env`、Harness home `.env`，优先级按此顺序。GUI 中保存的登录/密钥默认不用于 headless。空的已导出环境变量会覆盖后续 fallback。工作流应复用 CLI 配置，不把 API key 当路径设置或任务日志保存。
+[发布版 headless 配置](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-rc.5/packages/bundle/headless/cordis.patch.yml) 默认禁用 `credentials`。仅有启动环境或 `.env` 回退时，Models 页面已保存的 API key 不会被读取；2026-11-06 用户遇到的 `MISSING_CREDENTIAL` 已通过真实 CLI 的隔离模拟凭据复现。工作流的单次覆盖现在显式设置 `{ id: 'credentials', disabled: false }`，恢复官方凭据服务，而不修改用户 profile。
+
+[官方本地凭据服务](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-rc.5/packages/credentials/credentials-local/src/index.ts) 按 Harness 管理的凭据文档 → 启动环境 → 调用目录 `.env` → Harness home `.env` 解析，每次请求读取对应引用。复用 Models 保存的 API key，宿主不读取或复制密钥到任务目录、环境变量或日志。`deepseek-account` 和 `authorization` 仍沿用 headless 禁用状态；本修复不把网页登录令牌转换为 API key。用户若仅网页登录、未配置模型 API 凭据，仍需在 Harness 的 Models 页面保存。
 
 [DeepSeek API-key 适配器文档](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-rc.5/packages/llm/llm-deepseek-api-key/README.md) 说明默认变量 `DEEPSEEK_API_KEY`、缺失凭据 `MISSING_CREDENTIAL`、无效凭据 `INVALID_CREDENTIAL`；模型路由默认 `deepseek-official` / `deepseek-flash`。版本检查成功只证明可执行文件能运行，不证明密钥、网络或模型调用成功。
 
@@ -44,5 +46,7 @@ Headless 默认带有文件、shell、联网与子任务能力。视频工作流
 已在独立测试目录安装官方 `@deepseek-ai/dsh@0.2.1-rc.5`，将项目当前 `runDeepSeek` 与 `parseDeepSeekJson` 原样打包后，使用该真实 CLI 及本地确定性 mock provider 执行 smoke。测试使用全新 HOME / DSH_HOME、禁用真实提供商，并在启动进程及子进程中阻断 socket 连接和 fetch；没有使用用户密钥或调用真实模型。
 
 通过的断言：stdin 标记到达 provider；宿主本地 `.mjs` 覆盖插件成功加载；provider 没有可调用工具；已注册的测试工具经 `tools.execute()` 被 guard 拒绝，工具体没有执行；stdout 的会话、完成状态和 final 事件通过项目解析器得到完整 JSON。空工具列表在 provider 输入中被运行时省略为 `undefined`，测试按 `options.tools ?? []` 验证。
+
+凭据回归另外在独立 Harness home 写入合成 Models 凭据，并将进程 `DEEPSEEK_API_KEY` 置空；修复前实际报 `MISSING_CREDENTIAL`，修复后 mock provider 通过官方 credentials 服务解析到文件来源，同时断言密钥没有被导出到进程环境。测试保持强制禁网及工具拒绝，不发起收费 API 请求。
 
 该验证覆盖真实已发布 Harness 的启动、权限插件及协议兼容性；不证明用户本机的凭据、网络和在线模型可用性。测试包、隔离配置和事件文件留在本地 `.scratch/deepseek-cli/`，不作为应用依赖提交。

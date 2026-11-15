@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "iris-waterside-violet",
+      "png": "iris-waterside-violet.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 167874,
+      "transparent": 1430960
+    },
+    {
+      "id": "hydrangea-blue-stone",
+      "png": "hydrangea-blue-stone.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 192437,
+      "transparent": 1405975
+    },
+    {
+      "id": "bottle-gourd-autumn-vine",
+      "png": "bottle-gourd-autumn-vine.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 183578,
+      "transparent": 1415236
+    },
+    {
+      "id": "tallow-autumn-seeds",
+      "png": "tallow-autumn-seeds.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 72799,
+      "transparent": 1526218
+    },
+    {
+      "id": "hoopoe-spring-ground",
+      "png": "hoopoe-spring-ground.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 132002,
+      "transparent": 1467164
+    },
+    {
+      "id": "cormorant-waterside-rock",
+      "png": "cormorant-waterside-rock.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 145652,
+      "transparent": 1453674
+    },
+    {
+      "id": "lacquer-tray-peaches",
+      "png": "lacquer-tray-peaches.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 279343,
+      "transparent": 1319384
+    },
+    {
+      "id": "dark-glaze-whisked-tea",
+      "png": "dark-glaze-whisked-tea.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 309627,
+      "transparent": 1290262
+    },
+    {
+      "id": "bronze-lock-wooden-chest",
+      "png": "bronze-lock-wooden-chest.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 275683,
+      "transparent": 1323407
+    },
+    {
+      "id": "round-silk-fan-blossoms",
+      "png": "round-silk-fan-blossoms.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 245326,
+      "transparent": 1354522
+    },
+    {
+      "id": "stone-roller-threshing-yard",
+      "png": "stone-roller-threshing-yard.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 298987,
+      "transparent": 1299506
+    },
+    {
+      "id": "plank-bridge-creek",
+      "png": "plank-bridge-creek.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 249367,
+      "transparent": 1349476
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

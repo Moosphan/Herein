@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "ring-sword-and-lacquer-shield",
+      "name": "环刀守阵",
+      "category": "color",
+      "theme": "军旅兵器 · 刀盾意象",
+      "note": "环首长刀与漆盾 · 铁刃木胎 · 非制式复原",
+      "svg": "ring-sword-and-lacquer-shield.svg",
+      "png": "ring-sword-and-lacquer-shield.png"
+    },
+    {
+      "id": "bronze-ge-and-helmet",
+      "name": "铜戈遗影",
+      "category": "color",
+      "theme": "军旅器用 · 铜戈与札甲胄",
+      "note": "长胡横援与木柲 · 秦式札甲胄结构参考 · 原创设色意象",
+      "svg": "bronze-ge-and-helmet.svg",
+      "png": "bronze-ge-and-helmet.png"
+    },
+    {
+      "id": "jade-cong-ritual-vessel",
+      "name": "玉琮凝礼",
+      "category": "color",
+      "theme": "礼制器物 · 方琮意象",
+      "note": "外方内圆与可见玉质内壁 · 分节玉面 · 抽象刻纹",
+      "svg": "jade-cong-ritual-vessel.svg",
+      "png": "jade-cong-ritual-vessel.png"
+    },
+    {
+      "id": "mountain-lid-incense-burner",
+      "name": "博山烟岚",
+      "category": "color",
+      "theme": "居室陈设 · 山形香炉",
+      "note": "山形铜盖与承盘 · 烟气虚实 · 原创器形",
+      "svg": "mountain-lid-incense-burner.svg",
+      "png": "mountain-lid-incense-burner.png"
+    },
+    {
+      "id": "go-board-bowls-and-fan",
+      "name": "棋枰清趣",
+      "category": "color",
+      "theme": "文人游艺 · 围棋折扇",
+      "note": "十九路木枰 · 黑白棋子与棋罐 · 留白折扇",
+      "svg": "go-board-bowls-and-fan.svg",
+      "png": "go-board-bowls-and-fan.png"
+    },
+    {
+      "id": "single-wheel-grain-barrow",
+      "name": "独轮载谷",
+      "category": "color",
+      "theme": "农桑交通 · 木车负粮",
+      "note": "独轮辐轴与木架 · 双柄支腿 · 麻袋叠放",
+      "svg": "single-wheel-grain-barrow.svg",
+      "png": "single-wheel-grain-barrow.png"
+    },
+    {
+      "id": "golden-loquats-on-branch",
+      "name": "枇杷金实",
+      "category": "color",
+      "theme": "四时花果 · 枇杷熟枝",
+      "note": "金赭果皮 · 厚叶锯缘 · 果柄与萼端",
+      "svg": "golden-loquats-on-branch.svg",
+      "png": "golden-loquats-on-branch.png"
+    },
+    {
+      "id": "morning-glory-on-trellis",
+      "name": "牵牛晓露",
+      "category": "color",
+      "theme": "庭院花木 · 牵牛攀篱",
+      "note": "青紫喇叭花 · 心形叶与缠藤 · 竹篱承接",
+      "svg": "morning-glory-on-trellis.svg",
+      "png": "morning-glory-on-trellis.png"
+    },
+    {
+      "id": "ink-cat-and-butterfly",
+      "name": "狸花戏蝶",
+      "category": "figures",
+      "theme": "中华田园猫 · 短毛狸花",
+      "note": "褐灰短毛、额头 M 纹、颊纹与环尾，伏身举爪望蝶；中华田园猫原创意象。",
+      "svg": "ink-cat-and-butterfly.svg",
+      "png": "ink-cat-and-butterfly.png"
+    },
+    {
+      "id": "mandarin-ducks-among-reeds",
+      "name": "芦汀鸳侣",
+      "category": "figures",
+      "theme": "花鸟水岸 · 芦塘鸳鸯",
+      "note": "雌雄羽色与体态有别 · 水线接触 · 芦穗陪景",
+      "svg": "mandarin-ducks-among-reeds.svg",
+      "png": "mandarin-ducks-among-reeds.png"
+    },
+    {
+      "id": "bamboo-through-lattice-window",
+      "name": "漏窗竹影",
+      "category": "ink",
+      "theme": "园林古建 · 粉墙漏窗",
+      "note": "圆窗透孔与冰裂格 · 瓦帽粉墙 · 窗后竹叶",
+      "svg": "bamboo-through-lattice-window.svg",
+      "png": "bamboo-through-lattice-window.png"
+    },
+    {
+      "id": "timber-archway-in-old-lane",
+      "name": "古巷牌坊",
+      "category": "ink",
+      "theme": "建筑历史空间 · 古巷坊门",
+      "note": "四柱三间与三重檐冠 · 木枋石础 · 原创无字匾",
+      "svg": "timber-archway-in-old-lane.svg",
+      "png": "timber-archway-in-old-lane.png"
+    }
+  ]
+}

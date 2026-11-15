@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "hosta-white-trumpets",
+      "name": "玉簪花影",
+      "category": "color",
+      "theme": "玉簪 / 月白与浓叶",
+      "note": "阔心叶从根丛展开，长花葶承接侧开的白色筒花，叶脉顺体面。",
+      "svg": "hosta-white-trumpets.svg",
+      "png": "hosta-white-trumpets.png"
+    },
+    {
+      "id": "red-knotweed-riverside",
+      "name": "红蓼秋汀",
+      "category": "color",
+      "theme": "红蓼 / 胭脂与苔青",
+      "note": "弯垂花穗与连续花轴共用变换，披针叶依茎附着，水面留白。",
+      "svg": "red-knotweed-riverside.svg",
+      "png": "red-knotweed-riverside.png"
+    },
+    {
+      "id": "purple-hyacinth-bean-vine",
+      "name": "扁豆垂荚",
+      "category": "color",
+      "theme": "扁豆 / 烟紫与豆青",
+      "note": "三出复叶、攀援藤与阔扁紫荚分别成组，幼花、叶柄与荚梗接藤。",
+      "svg": "purple-hyacinth-bean-vine.svg",
+      "png": "purple-hyacinth-bean-vine.png"
+    },
+    {
+      "id": "oriole-golden-perch",
+      "name": "黄鹂栖枝",
+      "category": "figures",
+      "theme": "黄鹂 / 金黄与墨羽",
+      "note": "黑色贯眼纹、折叠黑翼与金黄胸背，脚趾包扣树枝，非物种图谱。",
+      "svg": "oriole-golden-perch.svg",
+      "png": "oriole-golden-perch.png"
+    },
+    {
+      "id": "chafer-on-broad-leaf",
+      "name": "金龟伏叶",
+      "category": "figures",
+      "theme": "金龟子 / 铜金与青碧",
+      "note": "头胸、成对鞘翅与六足分层，躯体实体，足尖落在可承托叶面。",
+      "svg": "chafer-on-broad-leaf.svg",
+      "png": "chafer-on-broad-leaf.png"
+    },
+    {
+      "id": "clay-xun-five-holes",
+      "name": "陶埙古韵",
+      "category": "color",
+      "theme": "陶埙 / 熟褐与暖赭",
+      "note": "卵形陶体、顶端吹口与五处可见指孔有壁厚，孔数不作为具体古埙复原。",
+      "svg": "clay-xun-five-holes.svg",
+      "png": "clay-xun-five-holes.png"
+    },
+    {
+      "id": "bronze-yi-basin",
+      "name": "铜匜沃盥",
+      "category": "color",
+      "theme": "铜匜 / 古铜与青锈",
+      "note": "浅腹长流、后鋬、三足及连续内腔，原创礼器形态练习，非具名文物复原。",
+      "svg": "bronze-yi-basin.svg",
+      "png": "bronze-yi-basin.png"
+    },
+    {
+      "id": "jade-huang-red-cords",
+      "name": "玉璜双系",
+      "category": "color",
+      "theme": "玉璜 / 青白与绛绦",
+      "note": "弧形玉体保留实体厚度，端部穿孔真正镂空，双系绳与下垂绦束相接。",
+      "svg": "jade-huang-red-cords.svg",
+      "png": "jade-huang-red-cords.png"
+    },
+    {
+      "id": "suspended-stone-chimes",
+      "name": "磬石悬声",
+      "category": "color",
+      "theme": "编磬意象 / 石青与朱木",
+      "note": "折角磬石悬在木架横梁下，绳接穿孔，简化四磬不充当历史编列或声学复原。",
+      "svg": "suspended-stone-chimes.svg",
+      "png": "suspended-stone-chimes.png"
+    },
+    {
+      "id": "woven-winnowing-tray",
+      "name": "笸箩晒谷",
+      "category": "color",
+      "theme": "晒谷 / 竹黄与稻金",
+      "note": "浅圆笸箩有连续口沿、编织器面和前壁，稻粒落面，稻穗连贯接秆。",
+      "svg": "woven-winnowing-tray.svg",
+      "png": "woven-winnowing-tray.png"
+    },
+    {
+      "id": "lacquer-lamp-stand",
+      "name": "灯檠书影",
+      "category": "color",
+      "theme": "灯檠 / 朱漆与微金",
+      "note": "灯盘接立柱、立柱落座，灯芯与火焰位于油盘一侧，书册另置下方。",
+      "svg": "lacquer-lamp-stand.svg",
+      "png": "lacquer-lamp-stand.png"
+    },
+    {
+      "id": "rammed-earth-pass",
+      "name": "夯关秋照",
+      "category": "ink",
+      "theme": "关门 / 土金与远青",
+      "note": "夯土墙体、门洞侧壁、木楣与地面连续，原创关隘空间，不对应具体遗址。",
+      "svg": "rammed-earth-pass.svg",
+      "png": "rammed-earth-pass.png"
+    }
+  ]
+}

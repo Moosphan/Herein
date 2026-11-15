@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "inkstone-and-brush",
+      "png": "inkstone-and-brush.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 188626,
+      "transparent": 1411353
+    },
+    {
+      "id": "jade-disc-tassel",
+      "png": "jade-disc-tassel.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 172387,
+      "transparent": 1427613
+    },
+    {
+      "id": "bronze-chime-bells",
+      "png": "bronze-chime-bells.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 166090,
+      "transparent": 1433805
+    },
+    {
+      "id": "lacquer-inlay-box",
+      "png": "lacquer-inlay-box.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 221476,
+      "transparent": 1378524
+    },
+    {
+      "id": "bow-and-quiver",
+      "png": "bow-and-quiver.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 71537,
+      "transparent": 1528446
+    },
+    {
+      "id": "strung-round-coins",
+      "png": "strung-round-coins.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 166480,
+      "transparent": 1433520
+    },
+    {
+      "id": "tea-kettle-brazier",
+      "png": "tea-kettle-brazier.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 142133,
+      "transparent": 1455464
+    },
+    {
+      "id": "loom-and-shuttle",
+      "png": "loom-and-shuttle.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 242780,
+      "transparent": 1357216
+    },
+    {
+      "id": "terraces-waterwheel",
+      "png": "terraces-waterwheel.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 313156,
+      "transparent": 1272981
+    },
+    {
+      "id": "apricot-two-swallows",
+      "png": "apricot-two-swallows.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 65530,
+      "transparent": 1533897
+    },
+    {
+      "id": "lotus-swimming-koi",
+      "png": "lotus-swimming-koi.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 283954,
+      "transparent": 1305783
+    },
+    {
+      "id": "moon-waterside-pavilion",
+      "png": "moon-waterside-pavilion.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 248667,
+      "transparent": 1330278
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

@@ -46,6 +46,34 @@ test('storyboard retains cinematic direction independently of its static keyfram
   )
 })
 
+test('native single-scene plan explicitly requires one target entry and complete plan JSON', () => {
+  const project = {
+    stages: {
+      storyboard: {
+        payload: {
+          scenes: [
+            { id: 'one', title: '第一镜' },
+            { id: 'two', title: '第二镜' },
+          ],
+        },
+      },
+      audio: {
+        payload: {
+          duration: 4,
+          tracks: [
+            { sceneId: 'one', text: '第一镜', duration: 2 },
+            { sceneId: 'two', text: '第二镜', duration: 2 },
+          ],
+        },
+      },
+    },
+  }
+  const prompt = native().nativeRevisionPrompt(project, '拉近主体', 1, 'one')
+  assert.match(prompt, /scenes 必须且只能有 1 项/)
+  assert.match(prompt, /sceneId 必须是 "one"/)
+  assert.match(prompt, /不得返回源码/)
+})
+
 test('native source preserves arbitrary frame logic instead of mapping it to WAAPI effects', () => {
   const result = native().validateNativeSources(sources, ['one'], {
     react: '18.3.1',

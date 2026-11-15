@@ -516,7 +516,7 @@ export class PlatformPublishingService {
       const video = await this.files.verify(record.projectId, record.snapshot.video),
         cover = await this.files.verify(record.projectId, record.snapshot.cover)
       const current = this.projects.get(record.projectId)
-      await verifyCoverImages(current, this.files)
+      await verifyCoverImages(current, this.files, this.runtime())
       if (
         current.stages.render?.id !== record.snapshot.renderRevisionId ||
         current.stages.publish?.id !== record.snapshot.publishRevisionId ||

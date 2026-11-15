@@ -11,6 +11,9 @@ const { runMigrations } = require('../src/main/database/migrations')
 const { VideoWorkflowService } = require('../src/main/services/video-workflow/service')
 const { WorkflowRuntimeManager } = require('../src/main/services/video-workflow/cli')
 const { renderWorkflow } = require('../src/main/services/video-workflow/render')
+const { importNativeMaterial } = require('../src/main/services/video-workflow/native-materials')
+const { NATIVE_REMOTION_ENTRY_V1 } = require('../src/main/services/video-workflow/remotion-native')
+const { renderRemotion } = require('../src/main/services/video-workflow/remotion')
 
 const root = mkdtempSync(join(tmpdir(), 'native-remotion-render-'))
 app.setPath('userData', join(root, 'electron'))
@@ -40,7 +43,7 @@ app.whenReady().then(async () => {
         {
           name: 'visuals.tsx',
           content:
-            "import React from 'react'; import {AbsoluteFill, Sequence} from 'remotion'; import First from './scene-0'; import Second from './scene-1'; export default function Visuals(props) { return <AbsoluteFill>{props.scenes.map((scene,index) => <Sequence key={scene.id} from={scene.from} durationInFrames={scene.durationInFrames}>{index === 0 ? <First/> : <Second/>}</Sequence>)}</AbsoluteFill> }",
+            "import React from 'react'; import {AbsoluteFill, Sequence, Img, OffthreadVideo, staticFile} from 'remotion'; import First from './scene-0'; import Second from './scene-1'; export default function Visuals(props) { return <AbsoluteFill>{props.scenes.map((scene,index) => <Sequence key={scene.id} from={scene.from} durationInFrames={scene.durationInFrames}>{index === 0 ? <First/> : <Second/>}</Sequence>)}{props.assets.filter(asset => asset.kind === 'image').map(asset => <Img key={asset.name} src={staticFile(asset.name)} style={{position:'absolute',left:700,top:40,width:80,height:80}}/>)}{props.assets.filter(asset => asset.kind === 'video').map(asset => <OffthreadVideo key={asset.name} src={staticFile(asset.name)} muted style={{position:'absolute',left:800,top:40,width:80,height:80}}/>)}{props.assets.filter(asset => asset.kind === 'font').map(asset => <div key={asset.name} style={{position:'absolute',left:20,top:600,fontFamily:asset.fontFamily,color:'white',fontSize:48}}>Frozen local font</div>)}</AbsoluteFill> }",
         },
         {
           name: 'scene-0.tsx',
@@ -56,19 +59,21 @@ app.whenReady().then(async () => {
     }
     const resultPath = join(root, 'agent-response.json')
     const promptPath = join(root, 'agent-prompt.txt')
+    const callPath = join(root, 'agent-calls.txt')
     writeFileSync(resultPath, JSON.stringify(sources))
     const agent = join(root, 'agent')
     writeFileSync(
       agent,
-      `#!/usr/bin/env node\nif(process.argv[2]==='mcp'){process.stdout.write('[]');process.exit(0)}const fs=require('node:fs');let input='';process.stdin.on('data',data=>input+=data);process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(promptPath)},input);fs.copyFileSync(${JSON.stringify(resultPath)},process.argv[process.argv.indexOf('--output-last-message')+1]);});`,
+      `#!/usr/bin/env node\nif(process.argv[2]==='mcp'){process.stdout.write('[]');process.exit(0)}const fs=require('node:fs');let input='';process.stdin.on('data',data=>input+=data);process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(promptPath)},input);fs.appendFileSync(${JSON.stringify(callPath)},'x');let value=JSON.parse(fs.readFileSync(${JSON.stringify(resultPath)},'utf8'));if(Array.isArray(value)){const next=value.shift();fs.writeFileSync(${JSON.stringify(resultPath)},JSON.stringify(value));value=next;}if(value.hold){setInterval(()=>{},1000);return;}fs.writeFileSync(process.argv[process.argv.indexOf('--output-last-message')+1],JSON.stringify(value));});`,
     )
     chmodSync(agent, 0o700)
     service.runtime.set({ ...runtime, codexPath: agent })
-    const waitJob = async (job) => {
+    const calls = () => readFileSync(callPath, 'utf8').length
+    const waitJob = async (job, expected = 'succeeded') => {
       for (let attempt = 0; attempt < 2400; attempt++) {
         const latest = service.repository.job(job.id)
         if (latest.state !== 'running') {
-          assert.equal(latest.state, 'succeeded', latest.error)
+          assert.equal(latest.state, expected, latest.error)
           return latest
         }
         await new Promise((resolve) => setTimeout(resolve, 50))
@@ -144,6 +149,49 @@ app.whenReady().then(async () => {
           { sceneId: 'two', file: audio, text: 'Execution starts', duration: 0.8 },
         ],
       })
+      const imagePath = join(root, `${format}-image.png`)
+      ffmpeg(['-f', 'lavfi', '-i', 'color=c=0xffff00:s=80x80', '-frames:v', '1', imagePath])
+      const videoPath = join(root, `${format}-silent.mp4`)
+      ffmpeg([
+        '-f',
+        'lavfi',
+        '-i',
+        'color=c=0x00ffff:s=80x80:d=2',
+        '-c:v',
+        'libx264',
+        '-pix_fmt',
+        'yuv420p',
+        videoPath,
+      ])
+      const nativeMaterials = []
+      for (const path of [imagePath, videoPath, '/System/Library/Fonts/Supplemental/Arial.ttf']) {
+        const material = await importNativeMaterial(project.id, path, service.files, runtime)
+        nativeMaterials.push({
+          ...material,
+          role: `独立${material.kind}素材用于说明任务`,
+          ...(material.kind === 'image' ? { sceneId: 'one' } : {}),
+        })
+      }
+      assert.equal(nativeMaterials[1].duration, 2)
+      assert.match(nativeMaterials[2].fontFamily, /^WorkflowFont_/)
+      const invalidPath = join(root, 'invalid.png')
+      writeFileSync(invalidPath, 'invalid image')
+      await assert.rejects(
+        importNativeMaterial(project.id, invalidPath, service.files, runtime),
+        /解码/,
+      )
+      const invalidFont = join(root, 'invalid.ttf')
+      writeFileSync(invalidFont, 'not a font')
+      await assert.rejects(
+        importNativeMaterial(project.id, invalidFont, service.files, runtime),
+        /格式/,
+      )
+      await assert.rejects(
+        importNativeMaterial(project.id, join(root, 'missing.mp4'), service.files, runtime),
+        /ENOENT/,
+      )
+      writeFileSync(imagePath, 'original file changed after import')
+      await service.files.verify(project.id, nativeMaterials[0].file)
       const generate = async (extra) => {
         const job = await service.generate({
           projectId: project.id,
@@ -152,13 +200,46 @@ app.whenReady().then(async () => {
           executor: 'template',
           stage: 'roughcut',
           renderEngine: 'remotion',
+          ...(!extra?.motionPlanJobId ? { nativeMaterials } : {}),
           ...extra,
         })
         await waitJob(job)
         project = service.repository.get(project.id)
       }
+      const brokenSources = {
+        ...sources,
+        files: sources.files.map((file) =>
+          file.name === 'scene-0.tsx'
+            ? {
+                ...file,
+                content: file.content.replace(
+                  'const frame = useCurrentFrame();',
+                  'const frame = missingFrameValue;',
+                ),
+              }
+            : file,
+        ),
+      }
+      writeFileSync(resultPath, JSON.stringify([brokenSources, sources]))
       await generate()
       let roughcut = project.stages.roughcut.payload
+      assert.equal(roughcut.renderProfile.quality, 'delivery')
+      assert.equal(JSON.parse(roughcut.checks).nativeCreation.repairs, 1)
+      assert.equal(JSON.parse(roughcut.checks).nativeCreation.attempts, 2)
+      assert.match(project.jobs.find((job) => job.stage === 'roughcut').phase, /自动修复 1\/2/)
+      const frozenConfig =
+        roughcut.compositionFiles[roughcut.compositionNames.indexOf('composition.json')]
+      assert.equal(
+        JSON.parse(readFileSync(service.files.path(frozenConfig), 'utf8')).creation.repairs,
+        1,
+      )
+      const originalSettings = JSON.parse(readFileSync(service.files.path(frozenConfig), 'utf8'))
+      assert.equal(originalSettings.assets.filter((asset) => asset.source === 'local').length, 3)
+      assert.equal(roughcut.nativeMaterials.length, 3)
+      assert.match(readFileSync(promptPath, 'utf8'), /独立image素材用于说明任务/)
+      assert.match(readFileSync(promptPath, 'utf8'), /missingFrameValue/)
+      assert.match(readFileSync(promptPath, 'utf8'), /修复诊断/)
+      writeFileSync(resultPath, JSON.stringify(sources))
       assert.equal(project.stages.roughcut.status, 'review')
       assert.equal(JSON.parse(roughcut.checks).motionEngine, 'remotion-native')
       assert.ok(!roughcut.compositionNames.includes('index.html'))
@@ -187,6 +268,14 @@ app.whenReady().then(async () => {
       assert.ok(pixel(0.05, 100, 200)[0] > 200, 'Native circle missing')
       assert.ok(pixel(0.6, 100, 200)[0] < 100, 'Native nonlinear animation did not advance')
       assert.ok(pixel(1.1, 10, 10)[1] > 70, 'Second native scene missing')
+      assert.ok(
+        pixel(0.1, 720, 60)[0] > 200 && pixel(0.1, 720, 60)[1] > 200,
+        'Independent image missing',
+      )
+      assert.ok(
+        pixel(0.1, 820, 60)[1] > 200 && pixel(0.1, 820, 60)[2] > 200,
+        'Silent independent video missing',
+      )
       const original = roughcut
       writeFileSync(
         resultPath,
@@ -212,19 +301,53 @@ app.whenReady().then(async () => {
         project.stages.roughcut.id,
         'Planning changed the current video',
       )
+      if (format === 'landscape') {
+        const before = calls()
+        writeFileSync(
+          resultPath,
+          JSON.stringify([
+            brokenSources,
+            {
+              ...sources,
+              files: sources.files.map((file) =>
+                file.name === 'scene-1.tsx'
+                  ? { ...file, content: file.content.replace('#165b43', '#ffffff') }
+                  : file,
+              ),
+            },
+          ]),
+        )
+        const scoped = await service.generate({
+          projectId: project.id,
+          expectedRevision: project.revision,
+          requestId: randomUUID(),
+          executor: 'template',
+          stage: 'roughcut',
+          renderEngine: 'remotion',
+          motionPlanJobId: plan.id,
+        })
+        const rejected = await waitJob(scoped, 'failed')
+        assert.match(rejected.error, /只能改变/)
+        assert.equal(calls() - before, 2)
+        assert.deepEqual(service.repository.get(project.id).stages, project.stages)
+      }
       writeFileSync(
         resultPath,
-        JSON.stringify({
-          ...sources,
-          files: sources.files.map((file) =>
-            file.name === 'scene-0.tsx'
-              ? { ...file, content: file.content.replace('#ff0000', '#ff8800') }
-              : file,
-          ),
-        }),
+        JSON.stringify([
+          brokenSources,
+          {
+            ...sources,
+            files: sources.files.map((file) =>
+              file.name === 'scene-0.tsx'
+                ? { ...file, content: file.content.replace('#ff0000', '#ff8800') }
+                : file,
+            ),
+          },
+        ]),
       )
       await generate({ motionPlanJobId: plan.id })
       roughcut = project.stages.roughcut.payload
+      assert.equal(JSON.parse(roughcut.checks).nativeCreation.repairs, 1)
       const originalSecond =
         original.compositionFiles[original.compositionNames.indexOf('scene-1.tsx')]
       const nextSecond = roughcut.compositionFiles[roughcut.compositionNames.indexOf('scene-1.tsx')]
@@ -233,12 +356,19 @@ app.whenReady().then(async () => {
         project.stages.audio.id,
         project.history.find((revision) => revision.stage === 'audio').id,
       )
-      project = service.repository.approve(
+      project = await service.approve(
         project.id,
         'roughcut',
         project.stages.roughcut.id,
         project.revision,
         randomUUID(),
+        '',
+      )
+      assert.equal(project.stages.render.status, 'approved')
+      assert.equal(project.stages.render.payload.file.id, project.stages.roughcut.payload.file.id)
+      assert.equal(
+        project.stages.render.payload.manifestHash,
+        project.stages.roughcut.payload.manifestHash,
       )
       const musicPath = join(root, 'music.wav')
       ffmpeg(['-f', 'lavfi', '-i', 'sine=frequency=880:duration=3', musicPath])
@@ -268,6 +398,20 @@ app.whenReady().then(async () => {
         },
       })
       assert.equal(final.sourceRoughcut, project.stages.roughcut.id)
+      assert.deepEqual(final.nativeMaterials, roughcut.nativeMaterials)
+      assert.equal(JSON.parse(final.checks).nativeCreation.repairs, 1)
+      const finalJob = service.repository.startJob(
+        project.id,
+        'render',
+        project.revision,
+        randomUUID(),
+        'template',
+        '',
+        undefined,
+        'remotion',
+      )
+      project = service.repository.finishJob(finalJob.id, final)
+      assert.equal(service.repository.job(finalJob.id).phase, '已完成，等待人工审核')
       if (!music) assert.equal(final.manifestHash, roughcut.manifestHash)
       for (const name of roughcut.compositionNames.filter((name) => name.endsWith('.tsx')))
         assert.equal(
@@ -283,13 +427,205 @@ app.whenReady().then(async () => {
         ),
       )
       if (music) assert.equal(finalSettings.music.volume, 0.3)
+      if (music) {
+        // The unified music action starts with the visible final, never invokes the creative Agent,
+        // and returns a new pending production revision requiring the one video review.
+        project = service.repository.approve(
+          project.id,
+          'render',
+          project.stages.render.id,
+          project.revision,
+          randomUUID(),
+        )
+        // Later upstream changes replace all scene IDs; retaining the frozen video must retain
+        // its scene-scoped assets and source timeline when only music is edited.
+        const changedStoryboard = {
+          ...project.stages.storyboard.payload,
+          scenes: project.stages.storyboard.payload.scenes.map((scene, index) => ({
+            ...scene,
+            id: `changed-${index}`,
+          })),
+        }
+        project = service.repository.save(
+          project.id,
+          'storyboard',
+          changedStoryboard,
+          project.revision,
+          randomUUID(),
+        )
+        project = service.repository.approve(
+          project.id,
+          'storyboard',
+          project.stages.storyboard.id,
+          project.revision,
+          randomUUID(),
+        )
+        for (const stage of ['narration', 'audio']) {
+          const original = project.stages[stage].payload
+          const next =
+            stage === 'narration'
+              ? {
+                  ...original,
+                  scenes: original.scenes.map((scene, index) => ({
+                    ...scene,
+                    id: `changed-${index}`,
+                  })),
+                }
+              : {
+                  ...original,
+                  tracks: original.tracks.map((track, index) => ({
+                    ...track,
+                    sceneId: `changed-${index}`,
+                  })),
+                }
+          project = service.repository.save(project.id, stage, next, project.revision, randomUUID())
+          project = service.repository.approve(
+            project.id,
+            stage,
+            project.stages[stage].id,
+            project.revision,
+            randomUUID(),
+          )
+        }
+        const visibleFinal = project.stages.render.payload.file.id
+        project = await service.discardMotionPlans(project.id, project.revision)
+        assert.equal(project.stages.roughcut.payload.file.id, visibleFinal)
+        assert.equal(project.stages.roughcut.payload.music.title, 'Native music regression')
+        project = await service.approve(
+          project.id,
+          'roughcut',
+          project.stages.roughcut.id,
+          project.revision,
+          randomUUID(),
+          '',
+        )
+        const callsBeforeMusic = calls()
+        const musicJob = await service.generate({
+          projectId: project.id,
+          stage: 'roughcut',
+          expectedRevision: project.revision,
+          requestId: randomUUID(),
+          executor: 'template',
+          musicOnly: true,
+        })
+        await waitJob(musicJob)
+        project = service.repository.get(project.id)
+        assert.equal(calls(), callsBeforeMusic)
+        assert.equal(project.stages.roughcut.status, 'review')
+        assert.equal(project.stages.render.status, 'stale')
+        const withoutMusic = project.stages.roughcut.payload
+        assert.equal(withoutMusic.music, undefined)
+        assert.equal(withoutMusic.renderProfile.quality, 'delivery')
+        const settings = JSON.parse(
+          readFileSync(
+            service.files.path(
+              withoutMusic.compositionFiles[
+                withoutMusic.compositionNames.indexOf('composition.json')
+              ],
+            ),
+            'utf8',
+          ),
+        )
+        assert.equal(settings.music, undefined)
+        for (const name of final.compositionNames.filter((name) => name.endsWith('.tsx')))
+          assert.equal(
+            withoutMusic.compositionFiles[withoutMusic.compositionNames.indexOf(name)].sha256,
+            final.compositionFiles[final.compositionNames.indexOf(name)].sha256,
+          )
+        project = await service.approve(
+          project.id,
+          'roughcut',
+          project.stages.roughcut.id,
+          project.revision,
+          randomUUID(),
+          '',
+        )
+        assert.equal(project.stages.render.status, 'approved')
+        assert.equal(project.stages.render.payload.file.id, withoutMusic.file.id)
+        // Restore the upstream fixture IDs for the independent later full-regeneration tests.
+        // The music regression above deliberately used only the old frozen timeline.
+        for (const stage of ['storyboard', 'narration', 'audio']) {
+          const original = project.stages[stage].payload
+          const next =
+            stage === 'storyboard' || stage === 'narration'
+              ? {
+                  ...original,
+                  scenes: original.scenes.map((scene, index) => ({
+                    ...scene,
+                    id: index ? 'two' : 'one',
+                  })),
+                }
+              : {
+                  ...original,
+                  tracks: original.tracks.map((track, index) => ({
+                    ...track,
+                    sceneId: index ? 'two' : 'one',
+                  })),
+                }
+          project = service.repository.save(project.id, stage, next, project.revision, randomUUID())
+          project = service.repository.approve(
+            project.id,
+            stage,
+            project.stages[stage].id,
+            project.revision,
+            randomUUID(),
+          )
+        }
+      }
       const destination = join(root, `${format}-export`)
       mkdirSync(destination)
       const exported = await service.exportComposition(project.id, 'roughcut', destination)
       assert.match(readFileSync(join(exported, 'visuals.tsx'), 'utf8'), /Sequence/)
       assert.ok(readFileSync(join(exported, 'public/narration.wav')).length > 100)
       assert.ok(readFileSync(join(exported, 'public/asset-0-0.svg'), 'utf8').includes('<svg'))
+      for (const material of nativeMaterials) {
+        const name = `material-${material.file.id}.${material.file.path.split('.').at(-1)}`
+        assert.deepEqual(
+          readFileSync(join(exported, 'public', name)),
+          readFileSync(service.files.path(material.file)),
+        )
+      }
+      if (format === 'landscape') {
+        const oldDirectory = join(root, 'legacy-native')
+        mkdirSync(oldDirectory)
+        const config = {
+          ...finalSettings,
+          assets: finalSettings.assets.filter((asset) => !asset.kind),
+        }
+        for (const [index, file] of final.compositionFiles.entries())
+          require('node:fs').copyFileSync(
+            service.files.path(file),
+            join(oldDirectory, final.compositionNames[index]),
+          )
+        writeFileSync(join(oldDirectory, 'composition.json'), JSON.stringify(config))
+        writeFileSync(join(oldDirectory, 'remotion.tsx'), NATIVE_REMOTION_ENTRY_V1)
+        await renderRemotion(runtime, oldDirectory, new AbortController().signal, true, () => {})
+      }
       const priorId = project.stages.roughcut.id
+      if (format === 'landscape') {
+        const target = service.files.path(nativeMaterials[0].file)
+        const saved = readFileSync(target)
+        writeFileSync(target, 'modified managed material')
+        try {
+          await assert.rejects(
+            service.generate({
+              projectId: project.id,
+              expectedRevision: project.revision,
+              requestId: randomUUID(),
+              executor: 'template',
+              stage: 'roughcut',
+              renderEngine: 'remotion',
+              nativeMaterials,
+            }),
+            /文件丢失或内容被修改/,
+          )
+        } finally {
+          writeFileSync(target, saved)
+        }
+        const other = service.repository.create('Foreign material owner')
+        await assert.rejects(service.files.verifyPayload(other.id, nativeMaterials), /不属于/)
+        assert.equal(service.repository.get(project.id).stages.roughcut.id, priorId)
+      }
       writeFileSync(resultPath, JSON.stringify({ blockers: ['Required asset is unavailable'] }))
       const failed = await service.generate({
         projectId: project.id,
@@ -308,9 +644,49 @@ app.whenReady().then(async () => {
       assert.equal(service.repository.job(failed.id).state, 'failed')
       assert.match(service.repository.job(failed.id).error, /Required asset is unavailable/)
       assert.equal(service.repository.get(project.id).stages.roughcut.id, priorId)
+      if (format === 'landscape') {
+        const before = calls()
+        const invalid = {
+          ...sources,
+          files: sources.files.map((file) =>
+            file.name === 'scene-0.tsx'
+              ? { ...file, content: 'export default function Broken( {' }
+              : file,
+          ),
+        }
+        writeFileSync(resultPath, JSON.stringify([invalid, invalid, invalid]))
+        const persistent = await service.generate({
+          projectId: project.id,
+          expectedRevision: project.revision,
+          requestId: randomUUID(),
+          executor: 'template',
+          stage: 'roughcut',
+          renderEngine: 'remotion',
+        })
+        assert.match((await waitJob(persistent, 'failed')).error, /自动修复 2 次后仍失败/)
+        assert.equal(calls() - before, 3)
+        assert.deepEqual(service.repository.get(project.id).stages, project.stages)
+        const beforeCancel = calls()
+        writeFileSync(resultPath, JSON.stringify({ hold: true }))
+        const pending = await service.generate({
+          projectId: project.id,
+          expectedRevision: project.revision,
+          requestId: randomUUID(),
+          executor: 'template',
+          stage: 'roughcut',
+          renderEngine: 'remotion',
+        })
+        for (let attempt = 0; attempt < 400 && calls() === beforeCancel; attempt++)
+          await new Promise((resolve) => setTimeout(resolve, 50))
+        assert.equal(calls() - beforeCancel, 1)
+        await service.cancel(pending.id)
+        await waitJob(pending, 'cancelled')
+        assert.equal(calls() - beforeCancel, 1)
+        assert.deepEqual(service.repository.get(project.id).stages, project.stages)
+      }
       writeFileSync(resultPath, JSON.stringify(sources))
       console.log(
-        `PASS native ${format}: service authoring, nonlinear SVG, scene timing, plan confirmation, single-scene isolation, frozen final, export, failure preservation`,
+        `PASS native ${format}: render repair, service authoring, nonlinear SVG, scene timing, plan confirmation, single-scene isolation, frozen final, export, failure preservation${format === 'landscape' ? ', repair limit, scoped repair rejection, cancellation' : ''}`,
       )
     }
     console.log(`Native render artifacts: ${root}`)

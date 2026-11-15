@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "wheat-and-stone-mill",
+      "name": "麦香石磨",
+      "category": "color",
+      "theme": "农桑百工 · 谷物加工",
+      "note": "磨盘转面与磨齿 · 木柄出粮槽 · 麦束粮袋",
+      "svg": "wheat-and-stone-mill.svg",
+      "png": "wheat-and-stone-mill.png"
+    },
+    {
+      "id": "woodblock-printing-desk",
+      "name": "雕版留香",
+      "category": "color",
+      "theme": "文教百工 · 雕版印书",
+      "note": "刻版墨刷与揭纸 · 书册陪景 · 纹字仅为装饰",
+      "svg": "woodblock-printing-desk.svg",
+      "png": "woodblock-printing-desk.png"
+    },
+    {
+      "id": "abacus-and-counting-rods",
+      "name": "珠算筹思",
+      "category": "color",
+      "theme": "数理商贸 · 筹算意象",
+      "note": "上二下五木珠 · 横梁穿杆 · 散筹与纸卷",
+      "svg": "abacus-and-counting-rods.svg",
+      "png": "abacus-and-counting-rods.png"
+    },
+    {
+      "id": "steelyard-and-grain-measure",
+      "name": "市衡量谷",
+      "category": "color",
+      "theme": "商贸度量 · 杆秤米斗",
+      "note": "提绳支点与吊盘 · 移动秤砣 · 木斗粮粒",
+      "svg": "steelyard-and-grain-measure.svg",
+      "png": "steelyard-and-grain-measure.png"
+    },
+    {
+      "id": "octagonal-palace-lantern",
+      "name": "宫灯照影",
+      "category": "color",
+      "theme": "民俗陈设 · 八角宫灯",
+      "note": "红木骨架与暖绢 · 折面梅影 · 垂穗悬绳",
+      "svg": "octagonal-palace-lantern.svg",
+      "png": "octagonal-palace-lantern.png"
+    },
+    {
+      "id": "swallow-kite-and-spool",
+      "name": "纸鸢乘风",
+      "category": "color",
+      "theme": "节俗游艺 · 燕形纸鸢",
+      "note": "靛蓝朱赭燕翼 · 竹骨与风线 · 木制绕线轴",
+      "svg": "swallow-kite-and-spool.svg",
+      "png": "swallow-kite-and-spool.png"
+    },
+    {
+      "id": "squirrel-in-grape-vine",
+      "name": "葡架松趣",
+      "category": "figures",
+      "theme": "花果生灵 · 葡萄松鼠",
+      "note": "紫葡青叶 · 松鼠回卷蓬尾 · 前爪抱果",
+      "svg": "squirrel-in-grape-vine.svg",
+      "png": "squirrel-in-grape-vine.png"
+    },
+    {
+      "id": "narcissus-in-porcelain-basin",
+      "name": "凌波清供",
+      "category": "color",
+      "theme": "岁时清供 · 水仙盆景",
+      "note": "白瓣黄盏与带叶 · 鳞茎石子 · 青花浅盆",
+      "svg": "narcissus-in-porcelain-basin.svg",
+      "png": "narcissus-in-porcelain-basin.png"
+    },
+    {
+      "id": "peacock-and-camellia",
+      "name": "翠羽山茶",
+      "category": "figures",
+      "theme": "花鸟园石 · 孔雀山茶",
+      "note": "钴青长颈与冠羽 · 拖尾眼斑 · 爪石着落",
+      "svg": "peacock-and-camellia.svg",
+      "png": "peacock-and-camellia.png"
+    },
+    {
+      "id": "city-gate-in-spring-clouds",
+      "name": "春云城阙",
+      "category": "ink",
+      "theme": "建筑历史空间 · 城门望楼",
+      "note": "夯土城墙与券门 · 重檐望楼 · 淡山与道路",
+      "svg": "city-gate-in-spring-clouds.svg",
+      "png": "city-gate-in-spring-clouds.png"
+    },
+    {
+      "id": "lotus-tiles-on-timber-eaves",
+      "name": "瓦当承露",
+      "category": "ink",
+      "theme": "建筑构件 · 莲纹瓦当",
+      "note": "筒瓦纵向承叠 · 莲纹瓦端 · 木檐与细草",
+      "svg": "lotus-tiles-on-timber-eaves.svg",
+      "png": "lotus-tiles-on-timber-eaves.png"
+    },
+    {
+      "id": "silk-embroidery-and-needle",
+      "name": "绣绷春色",
+      "category": "color",
+      "theme": "衣食百工 · 丝线刺绣",
+      "note": "竹绷花绢与针线 · 木轴彩线 · 金属小剪",
+      "svg": "silk-embroidery-and-needle.svg",
+      "png": "silk-embroidery-and-needle.png"
+    }
+  ]
+}

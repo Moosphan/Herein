@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "ring-sword-and-lacquer-shield",
+      "png": "ring-sword-and-lacquer-shield.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 221679,
+      "transparent": 1365270
+    },
+    {
+      "id": "bronze-ge-and-helmet",
+      "png": "bronze-ge-and-helmet.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 222603,
+      "transparent": 1364279
+    },
+    {
+      "id": "jade-cong-ritual-vessel",
+      "png": "jade-cong-ritual-vessel.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 203455,
+      "transparent": 1388892
+    },
+    {
+      "id": "mountain-lid-incense-burner",
+      "png": "mountain-lid-incense-burner.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 131275,
+      "transparent": 1459999
+    },
+    {
+      "id": "go-board-bowls-and-fan",
+      "png": "go-board-bowls-and-fan.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 352973,
+      "transparent": 1233760
+    },
+    {
+      "id": "single-wheel-grain-barrow",
+      "png": "single-wheel-grain-barrow.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 219896,
+      "transparent": 1364664
+    },
+    {
+      "id": "golden-loquats-on-branch",
+      "png": "golden-loquats-on-branch.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 133473,
+      "transparent": 1465344
+    },
+    {
+      "id": "morning-glory-on-trellis",
+      "png": "morning-glory-on-trellis.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 134204,
+      "transparent": 1464831
+    },
+    {
+      "id": "ink-cat-and-butterfly",
+      "png": "ink-cat-and-butterfly.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 178421,
+      "transparent": 1408376
+    },
+    {
+      "id": "mandarin-ducks-among-reeds",
+      "png": "mandarin-ducks-among-reeds.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 185020,
+      "transparent": 1396020
+    },
+    {
+      "id": "bamboo-through-lattice-window",
+      "png": "bamboo-through-lattice-window.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 362291,
+      "transparent": 1237462
+    },
+    {
+      "id": "timber-archway-in-old-lane",
+      "png": "timber-archway-in-old-lane.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 294558,
+      "transparent": 1282404
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

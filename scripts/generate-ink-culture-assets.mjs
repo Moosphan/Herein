@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { syncInkCollections } from './sync-ink-collections.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const destination = join(root, 'resources/visuals/traditional-culture')
@@ -1498,4 +1499,5 @@ writeFileSync(
     2,
   ) + '\n',
 )
+syncInkCollections()
 console.log(`Generated ${scenes.length} original ink-wash SVG scenes and demo/ink-study.html`)

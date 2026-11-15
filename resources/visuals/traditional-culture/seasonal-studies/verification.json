@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "peony-and-taihu-rock",
+      "png": "peony-and-taihu-rock.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 219392,
+      "transparent": 1373547
+    },
+    {
+      "id": "pomegranate-autumn-branch",
+      "png": "pomegranate-autumn-branch.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 143635,
+      "transparent": 1455124
+    },
+    {
+      "id": "banana-rain-stones",
+      "png": "banana-rain-stones.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 274932,
+      "transparent": 1314105
+    },
+    {
+      "id": "osmanthus-moon-rabbit",
+      "png": "osmanthus-moon-rabbit.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 186274,
+      "transparent": 1403925
+    },
+    {
+      "id": "eagle-on-cliff",
+      "png": "eagle-on-cliff.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 128771,
+      "transparent": 1471229
+    },
+    {
+      "id": "celadon-lotus-vase",
+      "png": "celadon-lotus-vase.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 172077,
+      "transparent": 1419800
+    },
+    {
+      "id": "bronze-jue-vessel",
+      "png": "bronze-jue-vessel.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 204419,
+      "transparent": 1384307
+    },
+    {
+      "id": "bamboo-sheng-pipes",
+      "png": "bamboo-sheng-pipes.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 209564,
+      "transparent": 1381516
+    },
+    {
+      "id": "arrow-pitch-pot",
+      "png": "arrow-pitch-pot.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 121846,
+      "transparent": 1465867
+    },
+    {
+      "id": "well-and-sweep",
+      "png": "well-and-sweep.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 160094,
+      "transparent": 1428093
+    },
+    {
+      "id": "riverside-timber-pier",
+      "png": "riverside-timber-pier.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 277177,
+      "transparent": 1291770
+    },
+    {
+      "id": "autumn-posthouse",
+      "png": "autumn-posthouse.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 343320,
+      "transparent": 1240695
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

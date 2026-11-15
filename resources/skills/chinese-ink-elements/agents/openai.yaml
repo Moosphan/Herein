@@ -1,0 +1,4 @@
+interface:
+  display_name: "中国古风元素绘画"
+  short_description: "按物体与场景自由设色，绘制中国古风彩墨及历史题材透明元素素材"
+  default_prompt: "请用 $chinese-ink-elements 为中国古代历史视频绘制一组古风元素，按材质与场景自由设色，保留笔墨和留白，并输出透明 SVG、PNG 和预览。"

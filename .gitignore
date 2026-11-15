@@ -13,6 +13,8 @@ docs/*
 !docs/design-guidelines.md
 !docs/design-system/
 !docs/design-system/**
+!docs/agents/
+!docs/agents/**
 !docs/backlogs/
 !docs/backlogs/notification-center.zh-CN.md
 !docs/superpowers/

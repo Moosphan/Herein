@@ -130,6 +130,25 @@ async function seed() {
     ]),
   )
   writeFileSync(
+    join(root, 'cover-source.jpg'),
+    execFileSync('ffmpeg', [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=0x2c2640:s=1600x1200',
+      '-frames:v',
+      '1',
+      '-f',
+      'image2pipe',
+      '-c:v',
+      'mjpeg',
+      'pipe:1',
+    ]),
+  )
+  writeFileSync(
     join(root, 'config/video-workflow.json'),
     JSON.stringify({
       nodePath: process.argv[3],

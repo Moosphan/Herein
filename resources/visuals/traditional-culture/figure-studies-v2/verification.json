@@ -1,0 +1,31 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "han-wudi-majesty",
+      "png": "han-wudi-majesty.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 338625,
+      "transparent": 1233317
+    },
+    {
+      "id": "huo-qubing-resolve",
+      "png": "huo-qubing-resolve.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 292005,
+      "transparent": 1267591
+    },
+    {
+      "id": "red-hare-stride",
+      "png": "red-hare-stride.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 232826,
+      "transparent": 1337858
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

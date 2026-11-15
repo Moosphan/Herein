@@ -35,6 +35,13 @@ import { WorkflowDialog } from './WorkflowDialog'
 import { ExecutionLog } from './ExecutionLog'
 import { useWorkflowAgent } from './useWorkflowAgent'
 import { useRenderEngine } from './useRenderEngine'
+import { nativeMaterialDraft } from './NativeMaterialPanel'
+import { productionRevision, productionReady } from '@shared/video-production'
+import {
+  nextVideoNode,
+  videoNodeLabel,
+  visibleVideoStages,
+} from '@shared/video-workflow-navigation'
 
 const stageDescriptions: Record<VideoStage, string> = {
   brief: '定义主题、目标观众、核心观点与目标时长。',
@@ -42,7 +49,7 @@ const stageDescriptions: Record<VideoStage, string> = {
   storyboard: '先看清每一镜，再确认统一视觉与叙事节奏。',
   narration: '结合已审核文案与分镜生成逐镜口播，编辑确认后再进入配音。',
   audio: '逐镜生成或导入配音，试听并确认字幕与真实时长。',
-  roughcut: '组合已审核的画面、声音与字幕，检查整体观感。',
+  roughcut: '按交付质量制作视频，检查画面、配音、字幕与配乐；审核通过后直接进入发布。',
   render: '使用冻结粗剪工程，按原画幅输出最终视频。',
   publish: '分别确认平台信息，导出发布包并记录发布结果。',
 }
@@ -90,10 +97,13 @@ export function StageWorkspace({
   const approveButton = useRef<HTMLButtonElement>(null)
   const [renderEngine, setRenderEngine] = useRenderEngine(project)
   const saveButton = useRef<HTMLButtonElement>(null)
-  const revision = project.stages[stage],
+  const revision = stage === 'roughcut' ? productionRevision(project) : project.stages[stage],
     unlocked = stageUnlocked(project, stage),
     running = project.jobs.find((job) => job.state === 'running')
-  const rendered = stageValue(project, stage === 'render' ? 'render' : 'roughcut')
+  const rendered =
+    stage === 'roughcut'
+      ? (revision?.payload as StagePayloads['roughcut'] | undefined)
+      : stageValue(project, stage === 'render' ? 'render' : 'roughcut')
   const reviewRenderEngine = rendered
     ? (rendered.renderEngine ?? 'hyperframes')
     : stage === 'render'
@@ -169,7 +179,14 @@ export function StageWorkspace({
     expectedRevision: project.revision,
     requestId: crypto.randomUUID(),
     agentExecutor: executor,
-    ...(stage === 'roughcut' ? { renderEngine } : {}),
+    ...(stage === 'roughcut'
+      ? {
+          renderEngine,
+          ...(renderEngine === 'remotion' && nativeMaterialDraft(project.id) !== undefined
+            ? { nativeMaterials: nativeMaterialDraft(project.id) }
+            : {}),
+        }
+      : {}),
     executor: storyboardModification
       ? executor
       : (stage === 'storyboard' &&
@@ -232,7 +249,7 @@ export function StageWorkspace({
       const result = await workflowCall<VideoProject>(
         'approve',
         project.id,
-        stage,
+        revision!.stage,
         revision!.id,
         project.revision,
         crypto.randomUUID(),
@@ -255,7 +272,7 @@ export function StageWorkspace({
   const canApprove =
     unlocked &&
     revision &&
-    revision.status !== 'approved' &&
+    (revision.status !== 'approved' || (stage === 'roughcut' && !productionReady(project))) &&
     (revision.status !== 'stale' || (stage === 'audio' && canReuseAudio(project, revision))) &&
     !draft.dirty &&
     !motionBlocked &&
@@ -265,7 +282,11 @@ export function StageWorkspace({
     ) &&
     !running &&
     !busy
-  const status = revision ? revisionStatus[revision.status] : '待开始'
+  const status = revision
+    ? stage === 'roughcut' && revision.status === 'approved' && !productionReady(project)
+      ? '待确认发布'
+      : revisionStatus[revision.status]
+    : '待开始'
   const previousStage = VIDEO_STAGES[VIDEO_STAGES.indexOf(stage) - 1]
   const storyboard = stageValue(project, 'storyboard')
   const narrationScene = (draft.payload as StagePayloads['narration']).scenes?.[activeScene]
@@ -391,7 +412,7 @@ export function StageWorkspace({
                           : stage === 'audio'
                             ? '逐段配音，逐段确认'
                             : stage === 'roughcut'
-                              ? '音画合成预览'
+                              ? '视频制作'
                               : stage === 'render'
                                 ? '正式成片'
                                 : stage === 'publish'
@@ -767,15 +788,27 @@ export function StageWorkspace({
                       onVoice={setVoice}
                       onConfigure={onVoiceover}
                       disabled={busy || Boolean(running) || !unlocked}
-                      onRegenerate={(audioTrackId) =>
-                        void run(async () => {
-                          const job = await workflowCall<WorkflowJob>('generate', {
-                            ...generationInput(),
-                            audioTrackId,
-                          })
-                          setPending({ id: job.id, payload: draft.payload })
+                      submitting={busy || !unlocked}
+                      onRegenerate={async (audioTrackIds, audioFeedback) => {
+                        let failureMessage = ''
+                        const submitted = await run(async () => {
+                          try {
+                            const job = await workflowCall<WorkflowJob>('generate', {
+                              ...generationInput(),
+                              ...(audioTrackIds.length === 1
+                                ? { audioTrackId: audioTrackIds[0] }
+                                : { audioTrackIds }),
+                              ...(audioFeedback ? { audioFeedback } : {}),
+                            })
+                            setPending({ id: job.id, payload: draft.payload })
+                          } catch (failure) {
+                            failureMessage = (failure as Error).message
+                            throw failure
+                          }
                         })
-                      }
+                        if (!submitted)
+                          throw new Error(failureMessage || '正在提交任务，请稍后重试。')
+                      }}
                       onRestoreVersion={(revisionId) =>
                         void run(async () => {
                           const result = await workflowCall<VideoProject>(
@@ -853,7 +886,7 @@ export function StageWorkspace({
                   <Badge variant={revision?.status === 'stale' ? 'urgent' : 'low'}>{status}</Badge>
                 </div>
                 <p className="workflow-muted">
-                  {VIDEO_STAGE_LABELS[stage]} · {revision ? `v${revision.version}` : '未保存'}
+                  {videoNodeLabel(stage)} · {revision ? `v${revision.version}` : '未保存'}
                 </p>
               </div>
               <div className="workflow-inspector-item">
@@ -931,7 +964,7 @@ export function StageWorkspace({
             <div className="workflow-section">
               <div>
                 <h3 className="workflow-section-title">任务与执行</h3>
-                <p className="workflow-muted">{VIDEO_STAGE_LABELS[stage]} · 仅执行已获准阶段</p>
+                <p className="workflow-muted">{videoNodeLabel(stage)} · 仅执行已获准阶段</p>
               </div>
               {stage === 'audio' &&
                 revision?.status === 'stale' &&
@@ -996,7 +1029,7 @@ export function StageWorkspace({
                   >
                     {stage === 'render'
                       ? '渲染最终成片'
-                      : `合成 ${VIDEO_RENDER_ENGINES[renderEngine]} 粗剪`}
+                      : `制作 ${VIDEO_RENDER_ENGINES[renderEngine]} 视频`}
                   </Button>
                   {stage === 'roughcut' && pendingMotionPlan && (
                     <p className="workflow-muted" role="status">
@@ -1012,7 +1045,8 @@ export function StageWorkspace({
       <div className="workflow-bottom">
         <div>
           <p className="text-body-sm font-semibold">
-            {revision?.status === 'approved' && !draft.dirty
+            {(stage === 'roughcut' ? productionReady(project) : revision?.status === 'approved') &&
+            !draft.dirty
               ? '当前版本已通过，可进入下一步'
               : '每一步，都由你确认'}
           </p>
@@ -1043,10 +1077,17 @@ export function StageWorkspace({
             <Button
               size="sm"
               aria-label="继续下一步"
-              disabled={revision?.status !== 'approved' || draft.dirty || Boolean(running) || busy}
+              disabled={
+                (stage === 'roughcut'
+                  ? !productionReady(project)
+                  : revision?.status !== 'approved') ||
+                draft.dirty ||
+                Boolean(running) ||
+                busy
+              }
               onClick={onNext}
             >
-              下一步：{VIDEO_STAGE_LABELS[VIDEO_STAGES[VIDEO_STAGES.indexOf(stage) + 1]]}
+              下一步：{videoNodeLabel(nextVideoNode(stage))}
               <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                 chevron_right
               </span>
@@ -1077,14 +1118,16 @@ export function StageWorkspace({
       >
         <p className="text-body-sm">{VIDEO_STAGE_LABELS[stage]}将创建新版本，需要重新审核。</p>
         <div className="workflow-section">
-          {VIDEO_STAGES.slice(VIDEO_STAGES.indexOf(stage) + 1).map((item) => (
-            <div key={item} className="workflow-toolbar text-body-sm">
-              <span>{VIDEO_STAGE_LABELS[item]}</span>
-              <span className="workflow-muted">
-                {project.stages[item] ? '已有结果将标为需更新' : '尚未生成'}
-              </span>
-            </div>
-          ))}
+          {visibleVideoStages()
+            .slice(visibleVideoStages().indexOf(stage) + 1)
+            .map((item) => (
+              <div key={item} className="workflow-toolbar text-body-sm">
+                <span>{videoNodeLabel(item)}</span>
+                <span className="workflow-muted">
+                  {project.stages[item] ? '已有结果将标为需更新' : '尚未生成'}
+                </span>
+              </div>
+            ))}
         </div>
         {error && (
           <p role="alert" className="workflow-error">
@@ -1105,7 +1148,7 @@ export function StageWorkspace({
             <div className="workflow-dialog-header">
               <div>
                 <Dialog.Title className="font-headline-sm">
-                  确认通过「{VIDEO_STAGE_LABELS[stage]}」v{revision?.version}
+                  确认通过「{videoNodeLabel(stage)}」v{revision?.version}
                 </Dialog.Title>
                 <Dialog.Description className="workflow-muted mt-2">
                   {stage === 'audio' &&
@@ -1118,8 +1161,10 @@ export function StageWorkspace({
                             job.operation?.action === 'reuse-roughcut' &&
                             job.operation.resultVersion === revision?.version,
                         )
-                      ? '本次沿用预览中的原粗剪及其原配音、字幕和时长。取消的修改计划与后续上游修改不会加入此视频，正式成片将复用这份冻结工程。'
-                      : '请确认当前已保存内容准确且可以进入下一步。后续修改会使依赖此版本的步骤失效。'}
+                      ? '本次沿用预览中的原视频及其原配音、字幕和时长。取消的修改计划与后续上游修改不会加入此视频，审核通过后直接用于发布。'
+                      : stage === 'roughcut'
+                        ? '请完整检查当前视频、配音、字幕及配乐。确认后此文件直接用于发布，不再重复渲染或审核；后续修改需要重新审核。历史预览编码保留原质量。'
+                        : '请确认当前已保存内容准确且可以进入下一步。后续修改会使依赖此版本的步骤失效。'}
                 </Dialog.Description>
               </div>
             </div>

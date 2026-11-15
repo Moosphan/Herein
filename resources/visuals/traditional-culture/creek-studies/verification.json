@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "acorus-creek-stones",
+      "png": "acorus-creek-stones.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 154127,
+      "transparent": 1445081
+    },
+    {
+      "id": "cockscomb-autumn-crimson",
+      "png": "cockscomb-autumn-crimson.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 177283,
+      "transparent": 1421595
+    },
+    {
+      "id": "crape-myrtle-pink-cloud",
+      "png": "crape-myrtle-pink-cloud.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 90731,
+      "transparent": 1508316
+    },
+    {
+      "id": "spotted-dove-elm-branch",
+      "png": "spotted-dove-elm-branch.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 92757,
+      "transparent": 1506821
+    },
+    {
+      "id": "hedgehog-fallen-chestnuts",
+      "png": "hedgehog-fallen-chestnuts.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 142332,
+      "transparent": 1457176
+    },
+    {
+      "id": "wild-geese-reed-flight",
+      "png": "wild-geese-reed-flight.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 95634,
+      "transparent": 1502032
+    },
+    {
+      "id": "bronze-pan-iron-silk",
+      "png": "bronze-pan-iron-silk.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 195190,
+      "transparent": 1404681
+    },
+    {
+      "id": "wooden-fish-red-cushion",
+      "png": "wooden-fish-red-cushion.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 303014,
+      "transparent": 1296826
+    },
+    {
+      "id": "suspended-bronze-gong",
+      "png": "suspended-bronze-gong.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 244464,
+      "transparent": 1355313
+    },
+    {
+      "id": "windlass-well-bucket",
+      "png": "windlass-well-bucket.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 154712,
+      "transparent": 1445261
+    },
+    {
+      "id": "raised-thatched-granary",
+      "png": "raised-thatched-granary.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 228328,
+      "transparent": 1371643
+    },
+    {
+      "id": "grey-tile-screen-wall",
+      "png": "grey-tile-screen-wall.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 347720,
+      "transparent": 1252094
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

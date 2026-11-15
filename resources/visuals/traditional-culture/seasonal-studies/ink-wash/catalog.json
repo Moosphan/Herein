@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "peony-and-taihu-rock",
+      "name": "牡丹绣石",
+      "category": "ink",
+      "theme": "自然与环境 · 牡丹园石",
+      "note": "胭脂重瓣 · 青灰透石 · 花叶干湿相映",
+      "svg": "peony-and-taihu-rock.svg",
+      "png": "peony-and-taihu-rock.png"
+    },
+    {
+      "id": "pomegranate-autumn-branch",
+      "name": "榴实盈枝",
+      "category": "ink",
+      "theme": "自然与环境 · 秋实花木",
+      "note": "赭红果皮 · 裂果籽粒 · 长叶与斜枝",
+      "svg": "pomegranate-autumn-branch.svg",
+      "png": "pomegranate-autumn-branch.png"
+    },
+    {
+      "id": "banana-rain-stones",
+      "name": "蕉雨听石",
+      "category": "ink",
+      "theme": "自然与环境 · 庭院雨意",
+      "note": "宽叶侧锋 · 冷绿雨痕 · 根石承接",
+      "svg": "banana-rain-stones.svg",
+      "png": "banana-rain-stones.png"
+    },
+    {
+      "id": "osmanthus-moon-rabbit",
+      "name": "桂影月兔",
+      "category": "figures",
+      "theme": "人物与生灵 · 月兔意象",
+      "note": "桂黄清月 · 灰白兔毛 · 原创节令文学意象",
+      "svg": "osmanthus-moon-rabbit.svg",
+      "png": "osmanthus-moon-rabbit.png"
+    },
+    {
+      "id": "eagle-on-cliff",
+      "name": "苍鹰守岩",
+      "category": "figures",
+      "theme": "人物与生灵 · 山岩猛禽",
+      "note": "敛翼回望 · 钩喙利爪 · 褐羽层叠",
+      "svg": "eagle-on-cliff.svg",
+      "png": "eagle-on-cliff.png"
+    },
+    {
+      "id": "celadon-lotus-vase",
+      "name": "青瓷含莲",
+      "category": "color",
+      "theme": "文字制度与器用 · 青瓷器物",
+      "note": "莲口青釉 · 刻花淡纹 · 口壁与底足",
+      "svg": "celadon-lotus-vase.svg",
+      "png": "celadon-lotus-vase.png"
+    },
+    {
+      "id": "bronze-jue-vessel",
+      "name": "铜爵礼影",
+      "category": "color",
+      "theme": "文字制度与器用 · 礼器意象",
+      "note": "流尾双柱 · 三足铜爵 · 非特定出土器复原",
+      "svg": "bronze-jue-vessel.svg",
+      "png": "bronze-jue-vessel.png"
+    },
+    {
+      "id": "bamboo-sheng-pipes",
+      "name": "笙竹和鸣",
+      "category": "color",
+      "theme": "文字制度与器用 · 礼乐器物",
+      "note": "参差竹管 · 木斗吹管 · 非具体古笙复原",
+      "svg": "bamboo-sheng-pipes.svg",
+      "png": "bamboo-sheng-pipes.png"
+    },
+    {
+      "id": "arrow-pitch-pot",
+      "name": "投壶矢趣",
+      "category": "color",
+      "theme": "文字制度与器用 · 宴饮礼戏",
+      "note": "修颈铜壶 · 双耳箭矢 · 通用活动意象",
+      "svg": "arrow-pitch-pot.svg",
+      "png": "arrow-pitch-pot.png"
+    },
+    {
+      "id": "well-and-sweep",
+      "name": "桔槔汲古",
+      "category": "ink",
+      "theme": "生产交流与图解 · 乡野汲水",
+      "note": "石井绳桶 · 支点配重 · 装饰构造非技术复原",
+      "svg": "well-and-sweep.svg",
+      "png": "well-and-sweep.png"
+    },
+    {
+      "id": "riverside-timber-pier",
+      "name": "汀渡横舟",
+      "category": "ink",
+      "theme": "军事与交通 · 水路渡口",
+      "note": "低矮临水栈台 · 船舷踏板 · 系泊与短桩水纹",
+      "svg": "riverside-timber-pier.svg",
+      "png": "riverside-timber-pier.png"
+    },
+    {
+      "id": "autumn-posthouse",
+      "name": "驿路秋舍",
+      "category": "ink",
+      "theme": "建筑与历史空间 · 行旅驿舍",
+      "note": "驿站牌匾与招牌 · 系驾驿马 · 带篷木轮驿车",
+      "svg": "autumn-posthouse.svg",
+      "png": "autumn-posthouse.png"
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron')
+const Database = require('better-sqlite3')
 const assert = require('node:assert/strict')
 const { mkdtempSync, writeFileSync } = require('node:fs')
 const { tmpdir } = require('node:os')
@@ -30,7 +31,7 @@ const originalHandle = ipcMain.handle.bind(ipcMain)
 let captured
 ipcMain.handle = (channel, listener) =>
   originalHandle(channel, (event, ...args) => {
-    if (channel === 'workflow:generate' && args[0]?.audioTrackId) {
+    if (channel === 'workflow:generate' && (args[0]?.audioTrackId || args[0]?.audioTrackIds)) {
       captured = args[0]
       return { success: false, error: '测试生成失败，旧配音已保留' }
     }
@@ -38,11 +39,19 @@ ipcMain.handle = (channel, listener) =>
   })
 require('../out/main/index.js')
 
+const testDeadline = setTimeout(() => {
+  console.error('UI test exceeded deadline', root)
+  app.exit(1)
+}, 120000)
 app.whenReady().then(async () => {
   let window
   const evaluate = async (source) => {
-    try { return await window.webContents.executeJavaScript(source, true) }
-    catch (error) { console.error('EVALUATE_FAILED', source, error); throw error }
+    try {
+      return await window.webContents.executeJavaScript(source, true)
+    } catch (error) {
+      console.error('EVALUATE_FAILED', source, error)
+      throw error
+    }
   }
   const waitFor = async (source, label) => {
     for (let attempt = 0; attempt < 120; attempt++) {
@@ -75,8 +84,33 @@ app.whenReady().then(async () => {
   const field = (label) =>
     `(()=>{const label=[...document.querySelectorAll('label')].find(item=>item.textContent.trim()===${JSON.stringify(label)});return label&&document.getElementById(label.htmlFor)})()`
   const screenshot = async (name) => {
+    window.show()
+    window.focus()
+    await delay(350)
+    window.webContents.invalidate()
     await delay(150)
-    writeFileSync(join(root, name + '.png'), (await window.webContents.capturePage()).toPNG())
+    if (!name.startsWith('audio-correction')) {
+      writeFileSync(join(root, name + '.png'), (await window.webContents.capturePage()).toPNG())
+      return
+    }
+    const attached = window.webContents.debugger.isAttached()
+    if (!attached) window.webContents.debugger.attach('1.3')
+    try {
+      let deadline
+      const image = await Promise.race([
+        window.webContents.debugger.sendCommand('Page.captureScreenshot', {
+          format: 'png',
+          fromSurface: true,
+          captureBeyondViewport: false,
+        }),
+        new Promise((_, reject) => {
+          deadline = setTimeout(() => reject(new Error('Screenshot timed out: ' + name)), 8000)
+        }),
+      ]).finally(() => clearTimeout(deadline))
+      writeFileSync(join(root, name + '.png'), Buffer.from(image.data, 'base64'))
+    } finally {
+      if (!attached) window.webContents.debugger.detach()
+    }
   }
   try {
     for (let attempt = 0; attempt < 120; attempt++) {
@@ -159,17 +193,18 @@ app.whenReady().then(async () => {
       await delay(100)
     }
     assert.equal(project.jobs.find((item) => item.id === secondJob.id)?.state, 'succeeded')
-    assert.equal(project.history.filter((item) => item.stage === 'audio').length, 2)
-    await evaluate(
-      `(()=>{history.pushState({},'', '/video');dispatchEvent(new PopStateEvent('popstate'))})()`,
-    )
+    assert.equal((await invoke('workflow:history', project.id, 'audio')).items.length, 2)
+    await evaluate(`location.hash='/video'`)
     await waitFor('document.querySelector(".workflow-project-card")', 'project list')
     await click('继续创作')
     await waitFor(
       'document.querySelectorAll(".workflow-audio-row").length===2',
       'two playable segments',
     )
-    await waitFor('document.querySelector("[data-audio-version-selector]")', 'audio version selector')
+    await waitFor(
+      'document.querySelector("[data-audio-version-selector]")',
+      'audio version selector',
+    )
     await click('分段配音版本')
     await waitFor(
       '[...document.querySelectorAll("[role=option]")].some(item=>item.textContent.includes("历史 v1"))',
@@ -178,10 +213,20 @@ app.whenReady().then(async () => {
     await evaluate(
       '[...document.querySelectorAll("[role=option]")].find(item=>item.textContent.includes("历史 v1")).click()',
     )
-    await waitFor('document.body.textContent.includes("切换为当前版本")', 'restore audio version action')
+    await waitFor(
+      'document.body.textContent.includes("切换为当前版本")',
+      'restore audio version action',
+    )
     assert.ok(await evaluate('document.body.textContent.includes("生成于")'))
+    await waitFor(
+      '[...document.querySelectorAll("button")].some(item=>item.textContent.trim()==="切换为当前版本"&&!item.disabled)',
+      'historical audio source loaded',
+    )
     await click('切换为当前版本')
-    await waitFor('document.body.textContent.includes("已切换分段配音版本")', 'restored audio version')
+    await waitFor(
+      'document.body.textContent.includes("已切换分段配音版本")',
+      'restored audio version',
+    )
     project = await invoke('workflow:get', project.id)
     assert.ok(await evaluate('document.querySelector(".workflow-audio-row audio").controls'))
     await waitFor('document.querySelector("[data-audio-track-menu]")', 'segment menu')
@@ -191,7 +236,7 @@ app.whenReady().then(async () => {
     await waitFor('document.querySelector("[role=menuitem]")', 'keyboard opens menu')
     assert.ok(
       await evaluate(
-        'document.querySelector("[role=menuitem]").textContent.includes("重新生成此段配音")',
+        '[...document.querySelectorAll("[role=menuitem]")].some(item=>item.textContent.includes("重新生成此段配音"))',
       ),
     )
     await key('Escape')
@@ -212,6 +257,7 @@ app.whenReady().then(async () => {
     )
     await evaluate('document.querySelector("[data-audio-track-menu]").focus()')
     await key('Space')
+    await key('End')
     await key('Enter')
     await waitFor(
       'document.body.textContent.includes("测试生成失败，旧配音已保留")',
@@ -226,6 +272,81 @@ app.whenReady().then(async () => {
         'window.__unchangedPlayer===document.querySelectorAll(".workflow-audio-row audio")[1]',
       ),
     )
+    const openCorrection = async (index = 0) => {
+      await evaluate(`document.querySelectorAll("[data-audio-track-menu]")[${index}].focus()`)
+      await key('Space')
+      await key('Home')
+      await key('Down')
+      await key('Enter')
+      await waitFor('document.querySelector("[role=dialog] textarea")', 'correction dialog')
+    }
+    await openCorrection()
+    assert.ok(
+      await evaluate(
+        '[...document.querySelectorAll("[role=dialog] button")].find(item=>item.textContent.startsWith("按意见重新生成")).disabled',
+      ),
+    )
+    const feedback = 'KSP 按字母读，toJson 拆开读，每句话完整收尾，句间停顿稍长。'
+    await evaluate(
+      `(()=>{const field=document.querySelector('[role=dialog] textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,${JSON.stringify(feedback)});field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();field.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));field.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true}));field.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}))})()`,
+    )
+    await key('Escape')
+    assert.ok(await evaluate('document.activeElement.matches("[data-audio-track-menu]")'))
+    await openCorrection()
+    assert.equal(await evaluate('document.querySelector("[role=dialog] textarea").value'), feedback)
+    await click('按意见重新生成')
+    await waitFor(
+      'document.querySelector("[role=dialog] [role=alert]")?.textContent.includes("测试生成失败")',
+      'correction failure retains draft',
+    )
+    assert.equal(captured.audioFeedback, feedback)
+    assert.equal(captured.agentExecutor, 'codex')
+    assert.equal(captured.audioTrackId, project.stages.audio.payload.tracks[0].file.id)
+    assert.equal(await evaluate('document.querySelector("[role=dialog] textarea").value'), feedback)
+    await evaluate(
+      '[...document.querySelectorAll("fieldset button")].find(item=>item.textContent.includes("2 · 第二镜")).click()',
+    )
+    await click('按意见重新生成 2 段')
+    await waitFor(
+      'document.querySelector("[role=dialog] [role=alert]")?.textContent.includes("测试生成失败")',
+      'batch submission failure retains input',
+    )
+    assert.deepEqual(
+      captured.audioTrackIds,
+      project.stages.audio.payload.tracks.map((track) => track.file.id),
+    )
+    assert.equal(captured.audioTrackId, undefined)
+    for (const theme of ['light', 'dark']) {
+      await evaluate(`document.documentElement.classList.toggle('dark',${theme === 'dark'})`)
+      for (const width of [1440, 1024]) {
+        window.setSize(width, 1000)
+        await screenshot(`audio-correction-${theme}-${width}`)
+        assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'))
+      }
+      window.setSize(1440, 900)
+      window.webContents.setZoomFactor(2)
+      await evaluate(
+        '[...document.querySelectorAll("[role=dialog] button")].find(item=>item.textContent.startsWith("按意见重新生成")).focus();document.activeElement.scrollIntoView({block:"center"})',
+      )
+      await key('Tab')
+      assert.ok(
+        await evaluate('document.querySelector("[role=dialog]").contains(document.activeElement)'),
+      )
+      await screenshot(`audio-correction-${theme}-200percent`)
+      window.webContents.setZoomFactor(1)
+    }
+    window.webContents.debugger.attach('1.3')
+    await window.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', {
+      features: [
+        { name: 'prefers-reduced-motion', value: 'reduce' },
+        { name: 'forced-colors', value: 'active' },
+      ],
+    })
+    await screenshot('audio-correction-reduced-high-contrast')
+    await window.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [] })
+    window.webContents.debugger.detach()
+    await key('Escape')
+    assert.ok(await evaluate('document.activeElement.matches("[data-audio-track-menu]")'))
     for (const theme of ['light', 'dark']) {
       await evaluate(`document.documentElement.classList.toggle('dark',${theme === 'dark'})`)
       for (const width of [1440, 1024]) {
@@ -252,6 +373,68 @@ app.whenReady().then(async () => {
       await evaluate(`${field('参考尾部停顿（毫秒）')}.scrollIntoView({block:'center'})`)
       await screenshot(`audio-pause-${theme}`)
     }
+    const fixture = new Database(join(root, 'database/dashboard.db'))
+    const queuedId = randomUUID()
+    const now = new Date().toISOString()
+    fixture
+      .prepare(
+        'INSERT INTO video_workflow_jobs(id,project_id,stage,request_id,expected_revision,executor,input_fingerprint,state,phase,created_at,updated_at,operation) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+      )
+      .run(
+        queuedId,
+        project.id,
+        'audio',
+        queuedId,
+        project.revision,
+        'codex',
+        '',
+        'running',
+        '正在按意见修改第一段',
+        now,
+        now,
+        JSON.stringify({
+          action: 'regenerate-audio',
+          audioTrackId: project.stages.audio.payload.tracks[0].file.id,
+          audioTrackIds: [project.stages.audio.payload.tracks[0].file.id],
+          audioTrackNumbers: [1],
+          feedback: '第一段纠音',
+        }),
+      )
+    window.webContents.send('workflow:updated', project.id)
+    await waitFor(
+      'document.querySelector("[data-audio-modification-queue]")',
+      'active audio correction queue',
+    )
+    await openCorrection(1)
+    assert.equal(
+      await evaluate('document.querySelectorAll("[role=dialog] fieldset button")[0].disabled'),
+      true,
+      'active track is locked separately',
+    )
+    assert.equal(
+      await evaluate('document.querySelectorAll("[role=dialog] fieldset button")[1].disabled'),
+      false,
+      'other tracks remain editable while generation runs',
+    )
+    await evaluate(
+      `(()=>{const field=document.querySelector('[role=dialog] textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(field,'第二段 JSON 按字母读');field.dispatchEvent(new Event('input',{bubbles:true}))})()`,
+    )
+    await click('按意见重新生成')
+    await waitFor(
+      'document.querySelector("[role=dialog] [role=alert]")',
+      'other track can submit during active generation',
+    )
+    assert.equal(captured.audioTrackId, project.stages.audio.payload.tracks[1].file.id)
+    assert.equal(captured.audioFeedback, '第二段 JSON 按字母读')
+    await screenshot('audio-correction-queue')
+    await key('Escape')
+    fixture.prepare('DELETE FROM video_workflow_jobs WHERE id=?').run(queuedId)
+    fixture.close()
+    window.webContents.send('workflow:updated', project.id)
+    await waitFor(
+      '!document.querySelector("[data-audio-modification-queue]")',
+      'queue fixture removed',
+    )
     await click('打开配音工具')
     await waitFor('document.querySelector("[role=dialog]")', 'voiceover dialog')
     await evaluate(
@@ -266,8 +449,9 @@ app.whenReady().then(async () => {
     )
     await screenshot('voiceover-pause-dark')
     console.log(
-      'PASS: native players retained, pause setting reaches single-track request, keyboard menu/Escape, failure retention, light/dark, 1440/1024/200%',
+      'PASS: feedback reaches single-track request, IME/keyboard/Escape, input and player retention, native controls, light/dark, 1440/1024/200%, reduced motion/high contrast',
     )
+    clearTimeout(testDeadline)
     app.exit(0)
   } catch (error) {
     console.error(error)

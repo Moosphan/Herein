@@ -10,6 +10,7 @@ import {
 } from '../src/main/database/repositories/video-workflow-repository'
 import {
   validatePayload,
+  validateAudioCorrectionPlan,
   splitNarration,
   stageValue,
   stageUnlocked,
@@ -25,7 +26,15 @@ import {
   projectVideoFormat,
   videoFrame,
 } from '../src/shared/video-workflow'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { WorkflowFiles } from '../src/main/services/video-workflow/files'
@@ -57,6 +66,7 @@ import { VoiceoverService } from '../src/main/services/voiceover/voiceover-servi
 import { resolveVoiceRequest } from '../src/shared/voiceover'
 import { copyPrompt } from '../src/main/services/video-workflow/copy'
 import { createWorkflowAudio, workflowVoiceSeed } from '../src/main/services/video-workflow/audio'
+import { productionRevision, productionReady } from '../src/shared/video-production'
 import {
   defaultMotion,
   extractMotionRequirements,
@@ -1455,6 +1465,232 @@ function visualFixture() {
   return { ...fixtureData, state, render }
 }
 
+test('one production approval creates an approved publication alias without changing video or quality', () => {
+  const { db, repository, state, render } = visualFixture()
+  try {
+    const pending = repository.save(
+      state.id,
+      'roughcut',
+      {
+        ...render,
+        renderProfile: { quality: 'delivery', fps: 30 },
+      },
+      state.revision,
+      randomUUID(),
+    )
+    const request = randomUUID()
+    const approved = repository.approveProduction(
+      state.id,
+      pending.stages.roughcut!.id,
+      pending.revision,
+      request,
+    )
+    assert.equal(approved.stages.roughcut!.status, 'approved')
+    assert.equal(approved.stages.render!.status, 'approved')
+    assert.equal(stageValue(approved, 'render')!.file.id, render.file.id)
+    assert.equal(stageValue(approved, 'render')!.sourceRoughcut, approved.stages.roughcut!.id)
+    assert.equal(stageValue(approved, 'render')!.renderProfile!.quality, 'delivery')
+    assert.equal(productionRevision(approved)!.id, approved.stages.render!.id)
+    assert.equal(productionReady(approved), true)
+    assert.equal(repository.summary(approved.id)!.approvedCount, 6)
+    assert.equal(repository.summary(approved.id)!.nextStage, 'publish')
+    assert.equal(
+      repository.approveProduction(state.id, pending.stages.roughcut!.id, pending.revision, request)
+        .revision,
+      approved.revision,
+    )
+    const changed = repository.save(state.id, 'roughcut', render, approved.revision, randomUUID())
+    assert.equal(productionRevision(changed)!.id, changed.stages.roughcut!.id)
+    assert.equal(productionReady(changed), false)
+    const sameTimestamp = {
+      ...changed,
+      stages: {
+        ...changed.stages,
+        roughcut: { ...changed.stages.roughcut!, createdAt: approved.stages.render!.createdAt },
+      },
+    }
+    assert.equal(productionRevision(sameTimestamp)!.id, changed.stages.roughcut!.id)
+    assert.equal(repository.summary(changed.id)!.approvedCount, 5)
+    assert.equal(repository.summary(changed.id)!.nextStage, 'roughcut')
+    assert.throws(
+      () =>
+        repository.approveProduction(
+          state.id,
+          pending.stages.roughcut!.id,
+          changed.revision,
+          randomUUID(),
+        ),
+      /审核版本/,
+    )
+  } finally {
+    db.close()
+  }
+})
+
+test('explicit approval of a legacy production keeps its actual preview encoding and old history', () => {
+  const { db, repository, state, render } = visualFixture()
+  try {
+    const old = repository.save(
+      state.id,
+      'roughcut',
+      { ...render, renderProfile: { quality: 'looks', fps: 30 } },
+      state.revision,
+      randomUUID(),
+    )
+    const prior = repository.approve(
+      state.id,
+      'roughcut',
+      old.stages.roughcut!.id,
+      old.revision,
+      randomUUID(),
+    )
+    assert.equal(productionReady(prior), false)
+    const current = repository.approveProduction(
+      state.id,
+      prior.stages.roughcut!.id,
+      prior.revision,
+      randomUUID(),
+    )
+    assert.equal(stageValue(current, 'render')!.renderProfile!.quality, 'looks')
+    assert.equal(
+      current.history.find((item) => item.id === old.stages.roughcut!.id)!.payload.file.id,
+      render.file.id,
+    )
+    assert.equal(current.stages.roughcut!.id, old.stages.roughcut!.id)
+  } finally {
+    db.close()
+  }
+})
+
+test('upstream invalidation preserves the latest final with music until a new production actually replaces it', () => {
+  const { db, repository, state, render } = visualFixture()
+  try {
+    let project = repository.save(state.id, 'roughcut', render, state.revision, randomUUID())
+    project = repository.approve(
+      state.id,
+      'roughcut',
+      project.stages.roughcut!.id,
+      project.revision,
+      randomUUID(),
+    )
+    const music = {
+      file: render.file,
+      title: 'Latest music',
+      source: 'local' as const,
+      start: 0,
+      duration: 3,
+      volume: 0.2,
+      playbackRate: 1,
+    }
+    project = repository.save(
+      state.id,
+      'render',
+      { ...render, music, sourceRoughcut: project.stages.roughcut!.id },
+      project.revision,
+      randomUUID(),
+    )
+    const latest = project.stages.render!
+    project = repository.approve(state.id, 'render', latest.id, project.revision, randomUUID())
+    project = repository.save(
+      state.id,
+      'copy',
+      { text: 'Updated upstream' },
+      project.revision,
+      randomUUID(),
+    )
+    assert.equal(productionRevision(project)!.id, latest.id)
+    assert.equal(
+      (productionRevision(project)!.payload as typeof render & { music: typeof music }).music.title,
+      'Latest music',
+    )
+    for (const stage of ['copy', 'storyboard', 'narration', 'audio'] as const) {
+      const prior = project.stages[stage]!
+      project = repository.save(state.id, stage, prior.payload, project.revision, randomUUID())
+      project = repository.approve(
+        state.id,
+        stage,
+        project.stages[stage]!.id,
+        project.revision,
+        randomUUID(),
+      )
+    }
+    project = repository.discardMotionPlans(state.id, project.revision)
+    assert.equal(stageValue(project, 'roughcut')!.music!.title, 'Latest music')
+    assert.equal(stageValue(project, 'roughcut')!.file.id, render.file.id)
+    assert.equal(project.stages.roughcut!.status, 'review')
+    assert.ok(project.history.some((item) => item.id === latest.id))
+  } finally {
+    db.close()
+  }
+})
+
+test('production approval rejects changed source files and inconsistent manifests without approving either stage', async () => {
+  const { db, repository, state, render } = visualFixture()
+  const root = mkdtempSync(join(tmpdir(), 'production-integrity-'))
+  const service = new VideoWorkflowService(root, db, () => {
+    throw new Error('Unexpected voice')
+  })
+  try {
+    const file = await service.files.write(state.id, 'frozen source', '.png')
+    db.prepare(
+      'UPDATE video_workflow_revisions SET payload=replace(payload,?,?) WHERE project_id=?',
+    ).run(JSON.stringify(render.file), JSON.stringify(file), state.id)
+    const baseline = repository.get(state.id)
+    let pending = repository.save(
+      state.id,
+      'roughcut',
+      {
+        ...render,
+        file,
+        cover: file,
+        compositionFiles: [file],
+        manifestHash: fingerprint([['frame-0.png', file.sha256]]),
+      },
+      baseline.revision,
+      randomUUID(),
+    )
+    const before = pending.stages
+    writeFileSync(service.files.path(file), 'changed bytes')
+    await assert.rejects(
+      service.approve(
+        state.id,
+        'roughcut',
+        pending.stages.roughcut!.id,
+        pending.revision,
+        randomUUID(),
+        '',
+      ),
+      /文件丢失|内容被修改/,
+    )
+    assert.deepEqual(repository.get(state.id).stages, before)
+    writeFileSync(service.files.path(file), 'frozen source')
+    pending = repository.save(
+      state.id,
+      'roughcut',
+      { ...stageValue(pending, 'roughcut'), manifestHash: 'b'.repeat(64) },
+      pending.revision,
+      randomUUID(),
+    )
+    await assert.rejects(
+      service.approve(
+        state.id,
+        'roughcut',
+        pending.stages.roughcut!.id,
+        pending.revision,
+        randomUUID(),
+        '',
+      ),
+      /冻结工程指纹/,
+    )
+    assert.equal(repository.get(state.id).stages.roughcut!.status, 'review')
+    assert.equal(repository.get(state.id).stages.render, undefined)
+  } finally {
+    await service.dispose()
+    db.close()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('storyboard approval does not wait for downstream audio or unavailable agent review', () => {
   const { db, state } = visualFixture()
   try {
@@ -2425,7 +2661,15 @@ test('workflow cloning derives stable per-segment seeds and keeps voice configur
 })
 
 test('single-track regeneration replaces only the selected chunk and preserves the previous version on failure', async () => {
-  for (const outcome of ['succeeded', 'failed', 'cancelled'] as const) {
+  for (const outcome of [
+    'succeeded',
+    'failed',
+    'cancelled',
+    'corrected',
+    'invalid-correction',
+    'failed-correction',
+    'cancelled-correction',
+  ] as const) {
     const { db, repository, state: initial, render } = visualFixture()
     const root = mkdtempSync(join(tmpdir(), 'workflow-single-track-'))
     const voiceover = new VoiceoverService(root, db, join(root, 'worker.py'))
@@ -2503,9 +2747,28 @@ test('single-track regeneration replaces only the selected chunk and preserves t
       voiceover.create = async (input) => {
         const request = resolveVoiceRequest(input)
         captured.push(request)
-        if (outcome === 'failed') throw new Error('fixture generation failure')
+        if (outcome === 'failed' || outcome === 'failed-correction')
+          throw new Error('fixture generation failure')
         const job = voiceover.repository.createJob(request)
         return outcome === 'cancelled' ? job : { ...job, state: 'succeeded', assetId }
+      }
+      const correction = outcome === 'corrected' || outcome.endsWith('-correction')
+      const plan = {
+        summary: '将术语拆开朗读，分句合成并保留句尾停顿',
+        parts: [
+          { text: '第一镜，凯 艾 丝 披。', pauseAfterMs: 200 },
+          { text: '调用 to JSON。', pauseAfterMs: 300 },
+        ],
+      }
+      const capture = join(root, 'correction-prompt.txt')
+      if (correction) {
+        const script = join(root, 'fake-codex')
+        writeFileSync(
+          script,
+          `#!/usr/bin/env node\nif(process.argv[2]==='mcp'){process.stdout.write('[]');process.exit(0)}const fs=require('node:fs');let input='';process.stdin.on('data',chunk=>input+=chunk);process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(capture)},input);setTimeout(()=>fs.writeFileSync(process.argv[process.argv.indexOf('--output-last-message')+1],${JSON.stringify(JSON.stringify(outcome === 'invalid-correction' ? { summary: 'invalid', parts: [] } : plan))}),${outcome === 'cancelled-correction' ? 30000 : 0});});\n`,
+        )
+        chmodSync(script, 0o755)
+        service.runtime.set({ codexPath: script })
       }
       const request = {
         projectId: state.id,
@@ -2514,6 +2777,12 @@ test('single-track regeneration replaces only the selected chunk and preserves t
         requestId: randomUUID(),
         executor: 'template' as const,
         audioTrackId: tracks[1].file.id,
+        ...(correction
+          ? {
+              audioFeedback: 'KSP 按字母读，toJson 拆开读，每句话完整收尾并稍作停顿',
+              agentExecutor: 'codex' as const,
+            }
+          : {}),
         voice: {
           engine: 'voxcpm2' as const,
           profileId: 'frozen-profile',
@@ -2526,24 +2795,69 @@ test('single-track regeneration replaces only the selected chunk and preserves t
         service.generate({ ...request, stage: 'copy', executor: 'codex' }),
         /配音阶段/,
       )
-      await assert.rejects(service.generate(request, [source]), /有效片段/)
+      await assert.rejects(service.generate(request, [source]), /有效片段|单段重生成/)
+      for (const invalid of ['', '   ', 123, null, '长'.repeat(5001)]) {
+        await assert.rejects(
+          service.generate(Object.assign({}, request, { audioFeedback: invalid })),
+          /配音修改意见/,
+        )
+      }
+      await assert.rejects(
+        service.generate({ ...request, audioTrackId: undefined, audioFeedback: '读清楚' }),
+        /单段重生成/,
+      )
       const job = await service.generate(request)
       if (outcome !== 'failed')
         await assert.rejects(service.generate({ ...request, requestId: randomUUID() }), /运行/)
-      if (outcome === 'cancelled') {
-        for (let attempt = 0; attempt < 100 && !captured.length; attempt++)
+      if (outcome === 'cancelled' || outcome === 'cancelled-correction') {
+        for (
+          let attempt = 0;
+          attempt < 100 &&
+          !(outcome === 'cancelled-correction' ? existsSync(capture) : captured.length);
+          attempt++
+        )
           await new Promise((resolve) => setTimeout(resolve, 10))
         await service.cancel(job.id)
       }
-      for (let attempt = 0; attempt < 150 && repository.job(job.id)?.state === 'running'; attempt++)
+      for (let attempt = 0; attempt < 500 && repository.job(job.id)?.state === 'running'; attempt++)
         await new Promise((resolve) => setTimeout(resolve, 20))
-      assert.equal(repository.job(job.id)?.state, outcome)
+      assert.equal(
+        repository.job(job.id)?.state,
+        outcome === 'corrected'
+          ? 'succeeded'
+          : outcome === 'cancelled-correction'
+            ? 'cancelled'
+            : correction
+              ? 'failed'
+              : outcome,
+      )
       state = repository.get(state.id)
-      assert.equal(captured.length, 1, 'only the selected chunk calls the voice engine')
-      assert.equal(captured[0].text, tracks[1].text)
-      assert.equal(captured[0].options.seed, workflowVoiceSeed(7, 1, tracks[1].text, job.id))
-      assert.equal(captured[0].options.promptPauseMs, 500)
-      if (outcome !== 'succeeded') {
+      assert.equal(
+        captured.length,
+        ['invalid-correction', 'cancelled-correction'].includes(outcome)
+          ? 0
+          : outcome === 'corrected'
+            ? 2
+            : 1,
+        'only the selected chunk calls the voice engine',
+      )
+      if (outcome === 'corrected') {
+        assert.deepEqual(
+          captured.map((request) => request.text),
+          plan.parts.map((part) => part.text),
+        )
+        assert.match(readFileSync(capture, 'utf8'), /KSP 按字母读/)
+        assert.match(readFileSync(capture, 'utf8'), /读音与停顿/)
+        assert.equal(repository.job(job.id)?.operation?.feedback, request.audioFeedback)
+      }
+      if (!correction) {
+        assert.equal(captured[0].text, tracks[1].text)
+        assert.equal(captured[0].options.seed, workflowVoiceSeed(7, 1, tracks[1].text, job.id))
+      }
+      if (captured.length) assert.equal(captured[0].options.promptPauseMs, 500)
+      if (correction)
+        assert.equal(repository.job(job.id)?.operation?.feedback, request.audioFeedback)
+      if (outcome !== 'succeeded' && outcome !== 'corrected') {
         assert.equal(state.stages.audio!.id, originalRevision)
         assert.deepEqual(state.stages.audio!.payload, originalAudio)
         assert.equal(state.stages.roughcut!.status, 'approved')
@@ -2557,10 +2871,45 @@ test('single-track regeneration replaces only the selected chunk and preserves t
         assert.notEqual(audio.tracks[1].file.id, tracks[1].file.id)
         assert.equal(audio.tracks[1].sceneId, 'one')
         assert.equal(audio.tracks[1].text, tracks[1].text)
-        assert.ok(Math.abs(audio.duration - 0.65) < 0.01)
-        assert.ok(Math.abs(audio.tracks[1].duration - 0.35) < 0.01)
-        assert.ok(service.files.text(audio.subtitles).includes('00:00:00,500'))
+        assert.ok(Math.abs(audio.duration - (correction ? 1.5 : 0.65)) < 0.01)
+        assert.ok(Math.abs(audio.tracks[1].duration - (correction ? 1.2 : 0.35)) < 0.01)
+        const subtitles = service.files.text(audio.subtitles)
+        assert.ok(subtitles.includes(tracks[1].text))
+        assert.ok(!subtitles.includes('凯 艾'))
+        if (correction) {
+          assert.deepEqual(audio.tracks[1].correction, {
+            ...plan,
+            feedback: request.audioFeedback,
+            executor: 'codex',
+          })
+          assert.equal(
+            validatePayload('audio', audio).tracks[1].correction?.feedback,
+            request.audioFeedback,
+          )
+        } else assert.ok(subtitles.includes('00:00:00,500'))
         assert.ok(state.history.some((revision) => revision.id === originalRevision))
+        if (correction) {
+          captured.length = 0
+          const retry = await service.generate({
+            ...request,
+            audioFeedback: undefined,
+            requestId: randomUUID(),
+            expectedRevision: state.revision,
+            audioTrackId: audio.tracks[1].file.id,
+          })
+          for (
+            let attempt = 0;
+            attempt < 500 && repository.job(retry.id)?.state === 'running';
+            attempt++
+          )
+            await new Promise((resolve) => setTimeout(resolve, 20))
+          assert.equal(repository.job(retry.id)?.state, 'succeeded')
+          assert.deepEqual(
+            captured.map((request) => request.text),
+            plan.parts.map((part) => part.text),
+            'ordinary regeneration retains adopted pronunciation corrections',
+          )
+        }
       }
     } finally {
       await service.dispose()
@@ -3913,7 +4262,115 @@ test('agent JSON parsing supports Codex plain output and Claude envelopes, rejec
   assert.deepEqual(parseAgentJson('{"result":"```json\\n{\\"text\\":\\"hello\\"}\\n```"}'), {
     text: 'hello',
   })
+  assert.deepEqual(parseAgentJson('Result follows:\n```json\n{"text":"hello"}\n```'), {
+    text: 'hello',
+  })
   assert.throws(() => parseAgentJson('Here is your script: hello'), /JSON/)
+})
+
+test('Agent CSS transform output becomes structured motion without accepting arbitrary CSS', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'workflow-agent-transform-'))
+  try {
+    const executable = join(root, 'dsh.cjs')
+    const answer = join(root, 'answer.json')
+    writeFileSync(
+      executable,
+      `const fs=require('node:fs');process.stdin.resume();process.stdin.on('end',()=>{for(const event of [{type:'session',sessionId:'fixture'},{type:'status',phase:'turn_end',reason:{kind:'completed'}},{type:'final',text:fs.readFileSync(${JSON.stringify(answer)},'utf8')}])console.log(JSON.stringify(event))});`,
+    )
+    const runtime = { ...new WorkflowRuntimeManager(root).get(), deepseekPath: executable }
+    const scene = (keyframes: unknown[]) => ({
+      id: 'one',
+      title: 'Test',
+      body: 'Test',
+      layout: 'title',
+      html: '<h1 id="title">Test</h1>',
+      motion: {
+        summary: 'Test',
+        blockers: [],
+        effects: [{ selector: '#title', start: 0, duration: 0.5, keyframes }],
+      },
+    })
+    const generate = async (value: unknown) => {
+      writeFileSync(answer, JSON.stringify(value))
+      return runAgent(
+        'deepseek',
+        runtime,
+        root,
+        'Test structured motion',
+        new AbortController().signal,
+      )
+    }
+    for (const [original, expected] of [
+      [
+        [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1.25)' }],
+        [{ scaleX: 0 }, { scaleX: 1.25 }],
+      ],
+      [
+        [{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }],
+        [{ scaleY: 0 }, { scaleY: 1 }],
+      ],
+      [
+        [
+          { transform: 'scale(0)', opacity: 0 },
+          { transform: 'scale(1)', opacity: 1 },
+        ],
+        [
+          { scale: 0, opacity: 0 },
+          { scale: 1, opacity: 1 },
+        ],
+      ],
+      [
+        [{ transform: 'translate(0px, 0px)' }, { transform: 'translate(50px, -8px)' }],
+        [{ translate: '0px 0px' }, { translate: '50px -8px' }],
+      ],
+      [
+        [{ transform: 'rotate(-10deg)' }, { transform: 'rotate(0deg)' }],
+        [{ rotate: '-10deg' }, { rotate: '0deg' }],
+      ],
+    ]) {
+      const input = { mode: 'agent', template: 'technical', scenes: [scene(original)] }
+      const snapshot = JSON.stringify(input)
+      const result = validatePayload('storyboard', await generate(input))
+      assert.deepEqual(result.scenes[0].motion!.effects[0].keyframes, expected)
+      assert.equal(JSON.stringify(input), snapshot)
+      assert.throws(() => validatePayload('storyboard', input), /不执行代码/)
+    }
+    const plan = {
+      summary: 'Test',
+      feedback: 'Test',
+      at: 0,
+      scenes: [
+        {
+          sceneId: 'one',
+          effects: scene([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }]).motion.effects,
+        },
+      ],
+    }
+    assert.deepEqual(
+      validateMotionPlan(await generate(plan), [{ id: 'one', duration: 1 }]).scenes[0].effects[0]
+        .keyframes,
+      [{ scaleX: 0 }, { scaleX: 1 }],
+    )
+    for (const frame of [
+      { transform: 'scaleX(1) rotate(10deg)' },
+      { transform: 'matrix(1,0,0,1,0,0)' },
+      { transform: 'translate(10%, 0px)' },
+      { transform: 'scaleX(1)', scaleX: 2 },
+      { transform: 'scaleX(1)', scale: 2 },
+      { transform: 'scaleX(1)', onfinish: 'alert(1)' },
+      { transform: 'url(https://example.invalid)' },
+      { transform: 'scaleX(99)' },
+    ]) {
+      const result = await generate({
+        mode: 'agent',
+        template: 'technical',
+        scenes: [scene([frame, { scaleX: 0 }])],
+      })
+      assert.throws(() => validatePayload('storyboard', result))
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test('DeepSeek runtime configuration preserves legacy defaults and explicit agent selection', () => {
@@ -4040,6 +4497,11 @@ test('DeepSeek adapter sends stdin through official headless flags and preserves
     assert.ok(invocation.prompt.includes(prompt))
     assert.match(invocation.patch, /read-only/)
     assert.match(invocation.patch, /never/)
+    assert.deepEqual(
+      JSON.parse(invocation.patch).find((entry: { id?: string }) => entry.id === 'credentials'),
+      { id: 'credentials', disabled: false },
+      'Headless must reuse the credentials service saved by the Harness Models page',
+    )
     writeFileSync(
       executable,
       `#!/usr/bin/env node\nprocess.stdin.resume();process.stdin.on('end',()=>{process.stdout.write(${JSON.stringify(stream)});process.stderr.write('DEEPSEEK_API_KEY=sk-syntheticsecret123456789');process.exit(1)});\n`,
@@ -4051,6 +4513,14 @@ test('DeepSeek adapter sends stdin through official headless flags and preserves
         assert.ok(!(error as Error).message.includes('sk-syntheticsecret123456789'))
         return true
       },
+    )
+    writeFileSync(
+      executable,
+      "#!/usr/bin/env node\nprocess.stdin.resume();process.stdin.on('end',()=>{process.stderr.write('dsh: MISSING_CREDENTIAL: no API key for provider route deepseek-official');process.exit(1)});\n",
+    )
+    await assert.rejects(
+      runAgent('deepseek', runtime, root, prompt, new AbortController().signal),
+      /DeepSeek Harness.*Models.*API.*原版本已保留/,
     )
     writeFileSync(
       executable,
@@ -4705,4 +5175,256 @@ test('template planning splits long paragraphs into distinct layouts without dro
   assert.ok(new Set(result.scenes.map((scene) => scene.layout)).size > 1)
   assert.equal(repository.get(project.id).stages.copy, undefined)
   db.close()
+})
+
+test('audio correction plans validate text, Unicode limits and finite bounded pauses', () => {
+  const valid = {
+    summary: '拆分读音与停顿',
+    parts: [{ text: '😀'.repeat(300), pauseAfterMs: 200 }],
+  }
+  assert.deepEqual(validateAudioCorrectionPlan(valid), valid)
+  for (const value of [
+    null,
+    {},
+    { ...valid, parts: [] },
+    { ...valid, parts: [{ text: ' ', pauseAfterMs: 0 }] },
+    { ...valid, parts: [{ text: '字'.repeat(301), pauseAfterMs: 0 }] },
+    { ...valid, parts: Array(21).fill({ text: '词', pauseAfterMs: 0 }) },
+    { ...valid, parts: Array(5).fill({ text: '字'.repeat(300), pauseAfterMs: 0 }) },
+  ]) {
+    assert.throws(() => validateAudioCorrectionPlan(value))
+  }
+  for (const pauseAfterMs of [-1, 2001, NaN, Infinity, 1.5, '200', undefined]) {
+    assert.throws(
+      () =>
+        validateAudioCorrectionPlan({ ...valid, parts: [{ text: '完整句子。', pauseAfterMs }] }),
+      /停顿/,
+    )
+  }
+})
+
+test('audio correction batches queue behind other tracks and preserve every accepted replacement', async () => {
+  for (const outcome of ['success', 'cancel-queued', 'fail-queued', 'cancel-first'] as const) {
+    const { db, repository, state: initial } = visualFixture()
+    const root = mkdtempSync(join(tmpdir(), 'workflow-audio-batch-'))
+    const voice = new VoiceoverService(root, db, join(root, 'worker.py'))
+    const service = new VideoWorkflowService(root, db, () => voice)
+    voice.runtime.check = async () => voice.runtime.get()
+    try {
+      const source = join(root, 'source.wav')
+      await workflowCommand(
+        service.runtime.get().ffmpegPath,
+        [
+          '-v',
+          'error',
+          '-f',
+          'lavfi',
+          '-i',
+          'sine=frequency=440:duration=0.15',
+          '-ar',
+          '48000',
+          source,
+        ],
+        { cwd: root, timeout: 10000 },
+      )
+      const tracks = await Promise.all(
+        ['第一段。', '第二段。', '第三段。'].map(async (text, index) => ({
+          text,
+          sceneId: index < 2 ? 'one' : 'two',
+          duration: 0.15,
+          file: await service.files.import(initial.id, source),
+        })),
+      )
+      const project = repository.save(
+        initial.id,
+        'audio',
+        {
+          tracks,
+          file: tracks[0].file,
+          subtitles: await service.files.write(initial.id, 'original', '.srt'),
+          duration: 0.45,
+        },
+        initial.revision,
+        randomUUID(),
+      )
+      const script = join(root, 'fake-codex')
+      writeFileSync(
+        script,
+        `#!/usr/bin/env node\nif(process.argv[2]==='mcp'){process.stdout.write('[]');process.exit(0)}const fs=require('node:fs');let input='';process.stdin.on('data',chunk=>input+=chunk);process.stdin.on('end',()=>{const text=JSON.parse(input.match(/指定片段原文 (.*)/)[1]);fs.writeFileSync(process.argv[process.argv.indexOf('--output-last-message')+1],JSON.stringify({summary:'调整朗读并增加停顿',parts:[{text:'修订'+text,pauseAfterMs:100}]}));});\n`,
+      )
+      chmodSync(script, 0o755)
+      service.runtime.set({ codexPath: script })
+      const assetId = Number(
+        db
+          .prepare(
+            "INSERT INTO video_assets(title,type,file_path) VALUES('fixture','audio','source.wav')",
+          )
+          .run().lastInsertRowid,
+      )
+      const captured: string[] = []
+      let firstVoiceJob = ''
+      voice.create = async (input) => {
+        const request = resolveVoiceRequest(input)
+        captured.push(request.text)
+        if (outcome === 'fail-queued' && captured.length === 3)
+          throw new Error('batch voice failure')
+        const job = voice.repository.createJob(request)
+        if (captured.length === 1) {
+          firstVoiceJob = job.id
+          return job
+        }
+        return { ...job, state: 'succeeded', assetId }
+      }
+      const base = {
+        projectId: project.id,
+        stage: 'audio' as const,
+        executor: 'template' as const,
+        agentExecutor: 'codex' as const,
+        expectedRevision: project.revision,
+        voice: {
+          engine: 'voxcpm2' as const,
+          profileId: 'frozen',
+          profileRevision: 1,
+          options: { seed: 42 },
+        },
+      }
+      const first = await service.generate({
+        ...base,
+        requestId: randomUUID(),
+        audioTrackId: tracks[0].file.id,
+        audioFeedback: '第一段读清楚。',
+      })
+      for (let i = 0; i < 150 && !firstVoiceJob; i++)
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      assert.ok(firstVoiceJob)
+      const secondInput = {
+        ...base,
+        requestId: randomUUID(),
+        audioTrackIds: [tracks[1].file.id, tracks[2].file.id],
+        audioFeedback: '这两段完整收尾，句后停顿。',
+      }
+      const second = await service.generate(secondInput)
+      assert.equal(
+        (await service.generate(secondInput)).id,
+        second.id,
+        'queued submission is idempotent',
+      )
+      assert.match(repository.job(second.id)!.phase, /等待/)
+      assert.equal(captured.length, 1, 'queued tasks do not start synthesis early')
+      await assert.rejects(
+        service.generate({ ...base, requestId: randomUUID(), audioTrackId: tracks[1].file.id }),
+        /已有|重复/,
+      )
+      await assert.rejects(service.generate({ ...base, requestId: randomUUID() }), /运行/)
+      for (const audioTrackIds of [[], [tracks[1].file.id, tracks[1].file.id], ['missing']])
+        await assert.rejects(
+          service.generate({ ...secondInput, requestId: randomUUID(), audioTrackIds }),
+        )
+      if (outcome === 'cancel-queued') {
+        const started = Date.now()
+        await service.cancel(second.id)
+        assert.ok(
+          Date.now() - started < 1000,
+          'cancelling queued work does not wait for the active voice job',
+        )
+      }
+      if (outcome === 'cancel-first') await service.cancel(first.id)
+      else voice.repository.updateJob(firstVoiceJob, { state: 'succeeded', assetId })
+      for (let i = 0; i < 250 && repository.job(second.id)?.state === 'running'; i++)
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      for (let i = 0; i < 250 && repository.job(first.id)?.state === 'running'; i++)
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      assert.equal(
+        repository.job(first.id)?.state,
+        outcome === 'cancel-first' ? 'cancelled' : 'succeeded',
+      )
+      assert.equal(
+        repository.job(second.id)?.state,
+        outcome === 'cancel-queued'
+          ? 'cancelled'
+          : outcome === 'fail-queued'
+            ? 'failed'
+            : 'succeeded',
+      )
+      const result = stageValue(repository.get(project.id), 'audio')!
+      assert.equal(result.tracks[0].file.id === tracks[0].file.id, outcome === 'cancel-first')
+      for (const index of [1, 2]) {
+        assert.equal(
+          result.tracks[index].file.id === tracks[index].file.id,
+          outcome === 'cancel-queued' || outcome === 'fail-queued',
+        )
+        assert.equal(result.tracks[index].text, tracks[index].text)
+      }
+      if (outcome === 'success' || outcome === 'cancel-first') {
+        assert.deepEqual(
+          captured,
+          tracks.map((track) => '修订' + track.text),
+        )
+        assert.deepEqual(
+          repository.job(second.id)?.operation?.audioTrackIds,
+          secondInput.audioTrackIds,
+        )
+        assert.equal(result.tracks[1].correction?.feedback, secondInput.audioFeedback)
+        assert.equal(repository.get(project.id).stages.audio?.status, 'review')
+      }
+    } finally {
+      await service.dispose()
+      await voice.dispose()
+      db.close()
+      rmSync(root, { recursive: true, force: true })
+    }
+  }
+})
+
+test('active audio modifications remain visible after more than one hundred newer task records', () => {
+  const { db, repository, state } = visualFixture()
+  try {
+    const operation = {
+      action: 'regenerate-audio' as const,
+      audioTrackId: stageValue(state, 'audio')!.tracks[0].file.id,
+    }
+    const first = repository.startJob(
+      state.id,
+      'audio',
+      state.revision,
+      randomUUID(),
+      'template',
+      'first',
+      operation,
+    )
+    for (let index = 0; index < 101; index++)
+      db.prepare(
+        "INSERT INTO video_workflow_jobs(id,project_id,stage,request_id,expected_revision,executor,state,phase,created_at,updated_at,input_fingerprint) VALUES(?,?,?,?,?,?,?,?,?,?,'')",
+      ).run(
+        randomUUID(),
+        state.id,
+        'audio',
+        randomUUID(),
+        state.revision,
+        'template',
+        'cancelled',
+        '',
+        '',
+        '',
+      )
+    assert.ok(
+      repository.get(state.id).jobs.some((job) => job.id === first.id),
+      'the active modification must remain visible for conflict checks and cancellation',
+    )
+    assert.throws(
+      () =>
+        repository.startJob(
+          state.id,
+          'audio',
+          state.revision,
+          randomUUID(),
+          'template',
+          'second',
+          operation,
+        ),
+      /已有运行/,
+    )
+  } finally {
+    db.close()
+  }
 })

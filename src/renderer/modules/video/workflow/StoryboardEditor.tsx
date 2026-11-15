@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { NativeMaterialPanel } from './NativeMaterialPanel'
 import { Button } from '@/components/ui/button'
 import { Toggle } from '@/components/ui/toggle'
 import { VoiceInput, VoiceRadioGroup, VoiceTextArea } from '../components/voiceover/VoiceControls'
@@ -657,6 +658,11 @@ export function StoryboardEditor({
         }
       >
         <div className="workflow-section">
+          <NativeMaterialPanel
+            projectId={projectId}
+            scenes={value.scenes}
+            disabled={disabled || starting}
+          />
           <Toggle
             label="Motion graphics 动画"
             aria-label="Motion graphics 动画"

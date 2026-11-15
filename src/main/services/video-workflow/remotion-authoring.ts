@@ -19,6 +19,8 @@ import {
   writeNativeComposition,
   type NativeSources,
 } from './remotion-native'
+import { runNativeRepair, type NativeAttemptOptions } from './remotion-repair'
+import { validateNativeMaterials, type NativeMaterial } from '../../../shared/video-materials'
 
 export async function authorNativeComposition(input: {
   project: VideoProject
@@ -26,9 +28,11 @@ export async function authorNativeComposition(input: {
   runtime: WorkflowRuntime
   cwd: string
   motion?: MotionPlan
+  materials?: NativeMaterial[]
   signal: AbortSignal
   phase: (message: string) => void
-  create: (prompt: string) => Promise<unknown>
+  create: (prompt: string, options: NativeAttemptOptions) => Promise<unknown>
+  render: (options: NativeAttemptOptions) => Promise<void>
   capture: (html: string, label: string) => Promise<Buffer>
 }) {
   const { project, files, runtime, cwd, motion, signal, phase } = input
@@ -72,6 +76,16 @@ export async function authorNativeComposition(input: {
   if (motion?.native && motion.sceneId && !previous)
     throw new Error('历史 HTML 工程尚无原生逐镜源码，请先生成整片原生粗剪，再进行当前分镜修改')
   if (!previous) {
+    for (const asset of validateNativeMaterials(
+      input.materials ?? [],
+      settings.scenes.map((scene) => scene.id),
+    )) {
+      const name = `material-${asset.file.id}.${asset.file.path.split('.').at(-1)}`
+      copyFileSync(await files.verify(project.id, asset.file), join(cwd, name))
+      const { file, ...metadata } = asset
+      settings.assets.push({ ...metadata, name, sourceFile: file })
+      names.push(name)
+    }
     for (const [index, scene] of storyboard.scenes.entries()) {
       signal.throwIfAborted()
       phase(`冻结原生创作参考与素材 ${index + 1}/${storyboard.scenes.length}`)
@@ -111,34 +125,45 @@ export async function authorNativeComposition(input: {
     }
   }
   settings.captions = subtitleCues(stageValue(project, 'audio')!.tracks)
-  phase('Agent 创作原生 Remotion 场景与镜头编排')
-  const sources = validateNativeSources(
-    await input.create(
-      nativeCreationPrompt(
-        project,
-        settings,
-        dependencies,
-        previous,
-        motion?.native?.instructions,
-        motion?.sceneId,
-      ),
-    ),
-    settings.scenes.map((scene) => scene.id),
-    dependencies,
-  )
-  if (previous)
-    assertNativeRevisionScope(
-      previous,
-      sources,
-      settings.scenes.map((scene) => scene.id),
-      motion?.sceneId,
-    )
-  signal.throwIfAborted()
-  writeNativeComposition(cwd, sources, settings, dependencies)
   copyFileSync(
     await files.verify(project.id, stageValue(project, 'audio')!.file),
     join(cwd, 'narration.wav'),
   )
+  phase('Agent 创作原生 Remotion 场景与镜头编排')
+  const { sources, report } = await runNativeRepair({
+    prompt: nativeCreationPrompt(
+      project,
+      settings,
+      dependencies,
+      previous,
+      motion?.native?.instructions,
+      motion?.sceneId,
+    ),
+    signal,
+    phase,
+    create: input.create,
+    validate: (raw) => {
+      const sources = validateNativeSources(
+        raw,
+        settings.scenes.map((scene) => scene.id),
+        dependencies,
+      )
+      if (previous)
+        assertNativeRevisionScope(
+          previous,
+          sources,
+          settings.scenes.map((scene) => scene.id),
+          motion?.sceneId,
+        )
+      return sources
+    },
+    render: async (sources, options) => {
+      writeNativeComposition(cwd, sources, settings, dependencies)
+      await input.render(options)
+    },
+  })
+  signal.throwIfAborted()
+  writeNativeComposition(cwd, sources, settings, dependencies, report)
   return [
     ...names,
     ...sources.files.map((file) => file.name),

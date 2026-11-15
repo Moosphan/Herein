@@ -1,0 +1,30 @@
+{
+  "version": 3,
+  "medium": "code-painted-expressive-ink",
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "han-wudi-command",
+      "name": "汉武帝 · 凝威",
+      "note": "压眉凝视 · 玄衣重墨 · 拢袖静势",
+      "svg": "han-wudi-command.svg",
+      "png": "han-wudi-command.png"
+    },
+    {
+      "id": "huo-qubing-vanguard",
+      "name": "霍去病 · 锐气",
+      "note": "青年侧望 · 按剑蓄势 · 迎风披袍",
+      "svg": "huo-qubing-vanguard.svg",
+      "png": "huo-qubing-vanguard.png"
+    },
+    {
+      "id": "red-hare-flight",
+      "name": "赤兔 · 凌风",
+      "note": "腾空奔姿 · 胸颈领势 · 飞鬃长尾",
+      "svg": "red-hare-flight.svg",
+      "png": "red-hare-flight.png"
+    }
+  ]
+}

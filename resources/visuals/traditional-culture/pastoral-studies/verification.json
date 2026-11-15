@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "mulberry-silkworm",
+      "png": "mulberry-silkworm.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 175026,
+      "transparent": 1423752
+    },
+    {
+      "id": "gardenia-ivory",
+      "png": "gardenia-ivory.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 174444,
+      "transparent": 1424458
+    },
+    {
+      "id": "trumpet-vine-orange",
+      "png": "trumpet-vine-orange.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 139426,
+      "transparent": 1458799
+    },
+    {
+      "id": "bulbul-autumn-branch",
+      "png": "bulbul-autumn-branch.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 124867,
+      "transparent": 1474469
+    },
+    {
+      "id": "frog-lotus-leaf",
+      "png": "frog-lotus-leaf.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 288778,
+      "transparent": 1311007
+    },
+    {
+      "id": "turtle-resting-stone",
+      "png": "turtle-resting-stone.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 260000,
+      "transparent": 1340000
+    },
+    {
+      "id": "bronze-gu-vessel",
+      "png": "bronze-gu-vessel.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 164800,
+      "transparent": 1434383
+    },
+    {
+      "id": "earthen-steamer",
+      "png": "earthen-steamer.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 284121,
+      "transparent": 1315354
+    },
+    {
+      "id": "bamboo-xiao-case",
+      "png": "bamboo-xiao-case.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 95492,
+      "transparent": 1504352
+    },
+    {
+      "id": "folding-landscape-screen",
+      "png": "folding-landscape-screen.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 465164,
+      "transparent": 1134167
+    },
+    {
+      "id": "winnowing-grain-measure",
+      "png": "winnowing-grain-measure.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 285225,
+      "transparent": 1314477
+    },
+    {
+      "id": "thatched-cottage-gate",
+      "png": "thatched-cottage-gate.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 321481,
+      "transparent": 1266766
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

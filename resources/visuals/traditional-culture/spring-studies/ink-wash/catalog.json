@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "iris-waterside-violet",
+      "name": "鸢尾临水",
+      "category": "color",
+      "theme": "花卉 / 鸢紫与苍绿",
+      "note": "三垂瓣、三立瓣围合花心，剑叶从根丛展开，花梗与花基连续。",
+      "svg": "iris-waterside-violet.svg",
+      "png": "iris-waterside-violet.png"
+    },
+    {
+      "id": "hydrangea-blue-stone",
+      "name": "绣球映石",
+      "category": "color",
+      "theme": "花木 / 石蓝与藕紫",
+      "note": "疏密小花围成有体积的球状花序，阔叶与分枝承接，近远花头改变尺度。",
+      "svg": "hydrangea-blue-stone.svg",
+      "png": "hydrangea-blue-stone.png"
+    },
+    {
+      "id": "bottle-gourd-autumn-vine",
+      "name": "葫芦垂藤",
+      "category": "color",
+      "theme": "藤果 / 草金与竹青",
+      "note": "上下两腹、束腰和果柄连续，果梗连藤，卷须与裂叶形成穿插负形。",
+      "svg": "bottle-gourd-autumn-vine.svg",
+      "png": "bottle-gourd-autumn-vine.png"
+    },
+    {
+      "id": "tallow-autumn-seeds",
+      "name": "乌桕秋汀",
+      "category": "color",
+      "theme": "秋木 / 赭红与米白",
+      "note": "菱状秋叶沿有粗细的枝干分布，开裂深色果皮托住浅色种子。",
+      "svg": "tallow-autumn-seeds.svg",
+      "png": "tallow-autumn-seeds.png"
+    },
+    {
+      "id": "hoopoe-spring-ground",
+      "name": "戴胜寻春",
+      "category": "figures",
+      "theme": "花鸟 / 赭羽与墨白",
+      "note": "长而微弯的喙、黑端扇冠和黑白折翼建立身份，双足落地。",
+      "svg": "hoopoe-spring-ground.svg",
+      "png": "hoopoe-spring-ground.png"
+    },
+    {
+      "id": "cormorant-waterside-rock",
+      "name": "鸬鹚听水",
+      "category": "figures",
+      "theme": "水鸟 / 墨青与冷石",
+      "note": "有厚度的长颈接头胸，喙端微钩、翼羽叠覆，蹼足承托石面。",
+      "svg": "cormorant-waterside-rock.svg",
+      "png": "cormorant-waterside-rock.png"
+    },
+    {
+      "id": "lacquer-tray-peaches",
+      "name": "漆盘荐果",
+      "category": "color",
+      "theme": "漆木 / 朱漆与桃粉",
+      "note": "漆盘内底、口沿、前壁共用椭圆投影，桃实以缝线、尖顶和柔色面建立体积。",
+      "svg": "lacquer-tray-peaches.svg",
+      "png": "lacquer-tray-peaches.png"
+    },
+    {
+      "id": "dark-glaze-whisked-tea",
+      "name": "建盏茶沫",
+      "category": "color",
+      "theme": "茶器 / 褐釉与乳金",
+      "note": "深釉盏口、茶面、外壁和圈足连续，釉纹随盏壁收拢，茶筅置侧。",
+      "svg": "dark-glaze-whisked-tea.svg",
+      "png": "dark-glaze-whisked-tea.png"
+    },
+    {
+      "id": "bronze-lock-wooden-chest",
+      "name": "铜锁守匣",
+      "category": "color",
+      "theme": "箱匣 / 木赭与铜金",
+      "note": "箱盖箱壁共用投影，锁扣连盖壁，横锁梁贯穿扣环，非开锁机制图。",
+      "svg": "bronze-lock-wooden-chest.svg",
+      "png": "bronze-lock-wooden-chest.png"
+    },
+    {
+      "id": "round-silk-fan-blossoms",
+      "name": "团扇扑香",
+      "category": "color",
+      "theme": "绢艺 / 米绢与烟粉",
+      "note": "扇面遮住后方结构，花枝裁在绢面内，包边、扇颈与柄连续。",
+      "svg": "round-silk-fan-blossoms.svg",
+      "png": "round-silk-fan-blossoms.png"
+    },
+    {
+      "id": "stone-roller-threshing-yard",
+      "name": "石碾晒场",
+      "category": "ink",
+      "theme": "乡居 / 石灰与谷金",
+      "note": "圆碾盘上立中轴，梁连碾磙轴心，石体有端面与厚度；仅作乡居构造意象。",
+      "svg": "stone-roller-threshing-yard.svg",
+      "png": "stone-roller-threshing-yard.png"
+    },
+    {
+      "id": "plank-bridge-creek",
+      "name": "板桥溪声",
+      "category": "ink",
+      "theme": "溪岸 / 木赭与浅青",
+      "note": "木梁跨石墩，横铺木板共用投影，桥面贴近溪水并接入两岸。",
+      "svg": "plank-bridge-creek.svg",
+      "png": "plank-bridge-creek.png"
+    }
+  ]
+}

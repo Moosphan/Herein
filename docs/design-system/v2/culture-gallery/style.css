@@ -1,0 +1,139 @@
+@import 'tailwindcss' source(none);
+@source './main.tsx';
+@import '@heroui/styles';
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    'Noto Sans SC', 'Plus Jakarta Sans', system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+.gallery-shell {
+  max-width: 1360px;
+  margin: auto;
+  padding: 32px 40px;
+}
+.gallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.eyebrow,
+.collection-label,
+.detail-meta,
+.gallery-footer {
+  color: var(--muted);
+  font-size: 12px;
+}
+h1 {
+  margin: 6px 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+.gallery-intro,
+.art-description,
+.detail-note {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.category-scroll {
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+.tab-count {
+  font-variant-numeric: tabular-nums;
+}
+.tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.collection-summary {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.art-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.art-grid > article {
+  display: grid;
+  min-width: 0;
+}
+.art-stage {
+  display: grid;
+  place-items: center;
+  position: relative;
+  aspect-ratio: 8 / 5;
+  overflow: hidden;
+  background: #dfc69c;
+  color: #413b30;
+}
+.art-stage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  position: absolute;
+  inset: 0;
+}
+.image-status {
+  position: absolute;
+  font-size: 13px;
+}
+.art-title {
+  margin: 4px 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.art-description {
+  margin: 0;
+}
+.detail-stage {
+  width: 100%;
+  height: min(62dvh, 900px);
+  aspect-ratio: auto;
+}
+.detail-note {
+  margin: 12px 0 0;
+}
+.download-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.gallery-footer {
+  margin-top: 28px;
+  line-height: 1.8;
+}
+@media (max-width: 1100px) {
+  .art-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .gallery-shell {
+    padding: 24px 16px;
+  }
+  .gallery-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  h1 {
+    font-size: 24px;
+  }
+  .art-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

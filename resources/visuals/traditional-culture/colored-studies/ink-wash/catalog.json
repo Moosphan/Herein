@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "style": "colored-ink",
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "autumn-falls",
+      "name": "丹枫听瀑",
+      "note": "赭石山骨 · 胭脂秋林 · 青灰飞瀑",
+      "seed": 7251,
+      "svg": "autumn-falls.svg",
+      "png": "autumn-falls.png"
+    },
+    {
+      "id": "vermilion-gate",
+      "name": "朱门金阙",
+      "note": "朱红墙身 · 金黄屋面 · 石青彩梁",
+      "seed": 9462,
+      "svg": "vermilion-gate.svg",
+      "png": "vermilion-gate.png"
+    },
+    {
+      "id": "porcelain-peonies",
+      "name": "青花案雅",
+      "note": "钴蓝瓷器 · 藕紫牡丹 · 暖木书卷",
+      "seed": 6534,
+      "svg": "porcelain-peonies.svg",
+      "png": "porcelain-peonies.png"
+    },
+    {
+      "id": "desert-caravan",
+      "name": "沙海行旅",
+      "note": "沙金大漠 · 驼棕商队 · 石蓝远山",
+      "seed": 8137,
+      "svg": "desert-caravan.svg",
+      "png": "desert-caravan.png"
+    }
+  ]
+}

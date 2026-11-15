@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ipcInvoke } from '@/lib/ipc'
 import {
-  VIDEO_STAGES,
   stageValue,
   projectVideoFormat,
   isImportedVideo,
@@ -12,6 +11,8 @@ import {
   type VideoProjectSummary,
 } from '@shared/video-workflow'
 import { WorkflowRefreshQueue } from './refresh-queue'
+import { productionReady } from '@shared/video-production'
+import { visibleVideoStages } from '@shared/video-workflow-navigation'
 
 export const workflowCall = <Result>(action: string, ...args: unknown[]) =>
   ipcInvoke<Result>(`workflow:${action}`, ...args)
@@ -20,7 +21,13 @@ export function mediaUrl(projectId: string, file: WorkflowFile) {
 }
 export function nextStage(project: VideoProject): VideoStage {
   if (isImportedVideo(project)) return 'publish'
-  return VIDEO_STAGES.find((stage) => project.stages[stage]?.status !== 'approved') ?? 'publish'
+  return (
+    visibleVideoStages().find((stage) =>
+      stage === 'roughcut'
+        ? !productionReady(project)
+        : project.stages[stage]?.status !== 'approved',
+    ) ?? 'publish'
+  )
 }
 export function useWorkflowProjects() {
   const [projects, setProjects] = useState<VideoProjectSummary[]>([])

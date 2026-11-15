@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "kumquat-golden-branch",
+      "png": "kumquat-golden-branch.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 86659,
+      "transparent": 1512590
+    },
+    {
+      "id": "quince-fruit-fragrance",
+      "png": "quince-fruit-fragrance.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 149524,
+      "transparent": 1449468
+    },
+    {
+      "id": "hypericum-golden-stamens",
+      "png": "hypericum-golden-stamens.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 136779,
+      "transparent": 1457837
+    },
+    {
+      "id": "bleeding-heart-flowers",
+      "png": "bleeding-heart-flowers.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 154190,
+      "transparent": 1442656
+    },
+    {
+      "id": "cicada-plane-tree-leaf",
+      "png": "cicada-plane-tree-leaf.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 142270,
+      "transparent": 1456723
+    },
+    {
+      "id": "butterflies-dianthus",
+      "png": "butterflies-dianthus.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 116983,
+      "transparent": 1478556
+    },
+    {
+      "id": "bamboo-brush-pot",
+      "png": "bamboo-brush-pot.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 167678,
+      "transparent": 1431937
+    },
+    {
+      "id": "scissors-ruler-brocade",
+      "png": "scissors-ruler-brocade.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 261952,
+      "transparent": 1337922
+    },
+    {
+      "id": "oil-paper-umbrella",
+      "png": "oil-paper-umbrella.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 178135,
+      "transparent": 1421833
+    },
+    {
+      "id": "rain-cape-conical-hat",
+      "png": "rain-cape-conical-hat.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 218097,
+      "transparent": 1381599
+    },
+    {
+      "id": "thread-bound-books-case",
+      "png": "thread-bound-books-case.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 211553,
+      "transparent": 1388417
+    },
+    {
+      "id": "drum-stones-red-door",
+      "png": "drum-stones-red-door.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 542912,
+      "transparent": 1057031
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

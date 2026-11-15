@@ -14,8 +14,8 @@ const taskNames: Record<VideoStage, string> = {
   storyboard: '生成 HTML 分镜',
   narration: '生成逐镜口播',
   audio: '制作逐镜配音',
-  roughcut: '合成动态粗剪',
-  render: '渲染正式成片',
+  roughcut: '制作视频',
+  render: '交付编码（历史流程）',
   publish: '生成发布资料',
 }
 
@@ -58,9 +58,11 @@ const changeNames: Record<string, string> = {
 }
 
 function taskName(job: WorkflowJob) {
+  if (job.operation?.action === 'regenerate-audio')
+    return job.operation.feedback ? '按修改意见重新生成配音' : '重新生成配音片段'
   if (job.operation?.action === 'generate-cover') return '生成 B 站双比例封面'
   if (job.operation?.action === 'accept-illustration') return '接受原创示意图降级'
-  if (job.operation?.action === 'reuse-roughcut') return '取消修改计划并沿用粗剪'
+  if (job.operation?.action === 'reuse-roughcut') return '取消修改计划并沿用视频'
   if (job.operation?.action === 'reuse-audio') return '沿用并审核分段配音'
   if (job.kind === 'motion-plan') return '生成元素动效修改计划'
   if (job.operation?.action === 'reuse-narration') return '沿用现有口播稿'
@@ -178,15 +180,17 @@ export function ExecutionLog({
               {job.operation && (
                 <div className="workflow-job-phase" data-workflow-operation>
                   <p>
-                    {job.operation.sceneId
-                      ? `目标：${job.operation.sceneNumber ? `第 ${job.operation.sceneNumber} 镜 · ` : ''}${job.operation.sceneTitle ?? '指定分镜'}`
-                      : job.operation.action === 'reuse-narration'
-                        ? '保留全部口播正文和读音提示，关联当前已审核分镜。'
-                        : job.operation.action === 'reuse-audio'
-                          ? '口播内容一致，保留原配音文件、音色和字幕，关联当前口播版本。'
-                          : job.operation.action === 'reuse-roughcut'
-                            ? '保留原粗剪画面、配音、字幕和时长，未重新合成；等待审核后继续正式成片。'
-                            : '修改范围见任务详情。'}
+                    {job.operation.action === 'regenerate-audio'
+                      ? `目标 第 ${job.operation.audioTrackNumbers?.join('、') ?? '指定'} 段配音`
+                      : job.operation.sceneId
+                        ? `目标：${job.operation.sceneNumber ? `第 ${job.operation.sceneNumber} 镜 · ` : ''}${job.operation.sceneTitle ?? '指定分镜'}`
+                        : job.operation.action === 'reuse-narration'
+                          ? '保留全部口播正文和读音提示，关联当前已审核分镜。'
+                          : job.operation.action === 'reuse-audio'
+                            ? '口播内容一致，保留原配音文件、音色和字幕，关联当前口播版本。'
+                            : job.operation.action === 'reuse-roughcut'
+                              ? '保留原视频画面、配音、字幕和时长，未重新合成；等待审核后直接发布。'
+                              : '修改范围见任务详情。'}
                   </p>
                   {job.operation.feedback && <p>修改意见：{job.operation.feedback}</p>}
                   {job.operation.sourceVersion !== undefined && (

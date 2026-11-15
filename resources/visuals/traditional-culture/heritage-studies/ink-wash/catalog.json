@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "bronze-tiger-tally",
+      "name": "虎符合信",
+      "theme": "文字制度与器用 · 符节军令",
+      "category": "color",
+      "note": "铜褐虎形 · 合缝与抽象嵌纹 · 非特定虎符复原",
+      "svg": "bronze-tiger-tally.svg",
+      "png": "bronze-tiger-tally.png"
+    },
+    {
+      "id": "lobed-bronze-mirror",
+      "name": "菱镜流光",
+      "theme": "文字制度与器用 · 铜镜日用",
+      "category": "color",
+      "note": "菱花镜面与飞鸟背纹 · 铜金转面 · 木座承托",
+      "svg": "lobed-bronze-mirror.svg",
+      "png": "lobed-bronze-mirror.png"
+    },
+    {
+      "id": "bamboo-bound-slips",
+      "name": "简牍遗音",
+      "theme": "文字制度与器用 · 文字书籍",
+      "category": "color",
+      "note": "竹黄简面 · 编绳卷束 · 抽象墨痕非史料文本",
+      "svg": "bamboo-bound-slips.svg",
+      "png": "bamboo-bound-slips.png"
+    },
+    {
+      "id": "stone-sundial",
+      "name": "晷影知时",
+      "theme": "生产交流与图解 · 天文计时",
+      "category": "color",
+      "note": "青灰石盘 · 晷针投影 · 计时器物意象",
+      "svg": "stone-sundial.svg",
+      "png": "stone-sundial.png"
+    },
+    {
+      "id": "herbal-grinding-trough",
+      "name": "本草碾香",
+      "theme": "生产交流与图解 · 医药器用",
+      "category": "color",
+      "note": "石碾轮槽 · 药叶根片 · 非药材鉴定图",
+      "svg": "herbal-grinding-trough.svg",
+      "png": "herbal-grinding-trough.png"
+    },
+    {
+      "id": "seal-and-clay",
+      "name": "印泥封信",
+      "theme": "文字制度与器用 · 文书印信",
+      "category": "color",
+      "note": "桥钮铜印 · 朱砂印泥盒 · 绳束封泥与抽象印迹",
+      "svg": "seal-and-clay.svg",
+      "png": "seal-and-clay.png"
+    },
+    {
+      "id": "wooden-pipa",
+      "name": "琵琶弦语",
+      "theme": "文字制度与器用 · 音乐表演",
+      "category": "color",
+      "note": "木色梨腹 · 曲项弦轴 · 乐器通用意象",
+      "svg": "wooden-pipa.svg",
+      "png": "wooden-pipa.png"
+    },
+    {
+      "id": "caravan-bells-and-bag",
+      "name": "驼铃行囊",
+      "theme": "生产交流与图解 · 丝路商旅",
+      "category": "color",
+      "note": "铜铃皮囊 · 石蓝织物 · 冷暖材料相衬",
+      "svg": "caravan-bells-and-bag.svg",
+      "png": "caravan-bells-and-bag.png"
+    },
+    {
+      "id": "academy-timber-corridor",
+      "name": "书院廊影",
+      "theme": "建筑与历史空间 · 教育庭院",
+      "category": "ink",
+      "note": "青灰薄檐 · 木柱栏杆 · 斜向纵深与庭竹",
+      "svg": "academy-timber-corridor.svg",
+      "png": "academy-timber-corridor.png"
+    },
+    {
+      "id": "ginkgo-autumn-rock",
+      "name": "银杏秋石",
+      "theme": "自然与环境 · 林木四时",
+      "category": "ink",
+      "note": "金黄扇叶 · 曲褐枝势 · 青灰近石",
+      "svg": "ginkgo-autumn-rock.svg",
+      "png": "ginkgo-autumn-rock.png"
+    },
+    {
+      "id": "orchid-by-rock",
+      "name": "兰草幽香",
+      "theme": "自然与环境 · 花卉园圃",
+      "category": "ink",
+      "note": "墨绿长叶 · 青白幽花 · 收锋交错与留白",
+      "svg": "orchid-by-rock.svg",
+      "png": "orchid-by-rock.png"
+    },
+    {
+      "id": "banner-and-war-drum",
+      "name": "旌旗鼓角",
+      "theme": "军事与交通 · 仪仗军需",
+      "category": "color",
+      "note": "绛红旌旗 · 赭金鼓面 · 木架支承与鼓槌",
+      "svg": "banner-and-war-drum.svg",
+      "png": "banner-and-war-drum.png"
+    }
+  ]
+}

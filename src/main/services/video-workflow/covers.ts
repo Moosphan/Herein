@@ -18,6 +18,8 @@ import { captureStoryboard } from './render'
 import { sceneHtml } from './storyboard'
 import { workflowCommand } from './process'
 import { prepareImageRecovery, recoverImageDownload } from './image2-recovery'
+import { videoDisplaySize } from './frame-cover'
+import { tmpdir } from 'node:os'
 
 export function image2Failure(failure: unknown): Error {
   const detail = (failure instanceof Error ? failure.message : String(failure))
@@ -79,23 +81,60 @@ ${stageValue(project, 'render')?.imported ? `外部成片内容说明：${JSON.s
 
 export function assertCoverSource(project: VideoProject) {
   for (const metadata of Object.values(stageValue(project, 'publish')?.platforms ?? {})) {
-    if (metadata.cover && metadata.cover.sourceRenderId !== project.stages.render?.id)
+    if (
+      metadata.cover &&
+      (metadata.cover.sourceRenderId !== project.stages.render?.id ||
+        (metadata.cover.method === 'frame' &&
+          (metadata.cover.frameSource?.videoSha256 !== stageValue(project, 'render')?.file.sha256 ||
+            !metadata.cover.frameSource ||
+            metadata.cover.frameSource.time >= stageValue(project, 'render')!.duration)))
+    )
       throw new Error('封面来源成片已变化，请重新生成封面或切换到当前成片的封面版本')
   }
 }
 
-export async function verifyCoverImages(project: VideoProject, files: WorkflowFiles) {
+export async function verifyCoverImages(
+  project: VideoProject,
+  files: WorkflowFiles,
+  runtime: WorkflowRuntime,
+) {
   assertCoverSource(project)
   for (const metadata of Object.values(stageValue(project, 'publish')?.platforms ?? {})) {
     if (!metadata.cover) continue
-    for (const [file, height] of [
-      [metadata.cover.file, 900],
-      [metadata.cover.feedFile, 1200],
+    if (metadata.cover.method === 'frame' && metadata.cover.platform === 'douyin') {
+      const render = stageValue(project, 'render')!
+      let dimensions = { width: render.width, height: render.height }
+      if (render.imported) {
+        const probe = JSON.parse(
+          await workflowCommand(
+            runtime.ffprobePath,
+            [
+              '-v',
+              'error',
+              '-select_streams',
+              'v:0',
+              '-show_entries',
+              'stream=width,height,sample_aspect_ratio:stream_side_data=rotation',
+              '-of',
+              'json',
+              await files.verify(project.id, render.file),
+            ],
+            { cwd: tmpdir(), timeout: 20000 },
+          ),
+        )
+        dimensions = videoDisplaySize(probe.streams?.[0] ?? {})
+      }
+      if (metadata.cover.width !== dimensions.width || metadata.cover.height !== dimensions.height)
+        throw new Error('选帧封面画幅与来源成片不一致，请重新选帧')
+    }
+    for (const [file, width, height] of [
+      [metadata.cover.file, metadata.cover.width, metadata.cover.height],
+      [metadata.cover.feedFile, metadata.cover.feedWidth, metadata.cover.feedHeight],
     ] as const) {
       const path = await files.verify(project.id, file)
       const image = nativeImage.createFromPath(path)
       const size = image.getSize()
-      if (image.isEmpty() || size.width !== 1600 || size.height !== height)
+      if (image.isEmpty() || size.width !== width || size.height !== height)
         throw new Error('封面图片实际尺寸不符合规范，请重新生成')
     }
   }
@@ -246,19 +285,15 @@ export async function generatePublicationCover(input: {
     } catch {
       throw new Error('Image2 未生成有效图片文件，原封面已保留')
     }
-    if (
-      data.length < 24 ||
-      !data.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')) ||
-      data.readUInt32BE(16) > 4096 ||
-      data.readUInt32BE(20) > 4096
-    )
-      throw new Error('Image2 图片格式或分辨率无效，请重试')
+    if (data.length < 24) throw new Error('Image2 图片格式或分辨率无效，请重试')
     const image = nativeImage.createFromBuffer(data)
     const size = image.getSize()
     if (
       image.isEmpty() ||
       size.width < 1200 ||
       size.height < 900 ||
+      size.width > 4096 ||
+      size.height > 4096 ||
       Math.abs(size.width / size.height - 4 / 3) > 0.02
     )
       throw new Error('Image2 未返回合规 4:3 高清封面，请重试')

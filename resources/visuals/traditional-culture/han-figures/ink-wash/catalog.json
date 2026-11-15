@@ -1,0 +1,54 @@
+{
+  "version": 2,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "medium": "code-painted-historical-interpretation",
+  "assets": [
+    {
+      "id": "xiang-yu-chu-campaign",
+      "name": "项羽 · 沉雄",
+      "theme": "秦末楚汉 / 甲衣与骏马",
+      "note": "方阔颌面、浓眉短髯与沉雄视线；朱赭披风衬青铁甲，束腰收肩。五官与马色为艺术推演。",
+      "category": "figures",
+      "svg": "xiang-yu-chu-campaign.svg",
+      "png": "xiang-yu-chu-campaign.png"
+    },
+    {
+      "id": "liu-bang-han-founder",
+      "name": "刘邦 · 定汉",
+      "theme": "汉初 / 长冠与美须髯",
+      "note": "成熟长面、高鼻与垂髯，烟紫外氅衬赭褐内袍；依据隆准、美须髯塑形，非精确肖像或冠制复原。",
+      "category": "figures",
+      "svg": "liu-bang-han-founder.svg",
+      "png": "liu-bang-han-founder.png"
+    },
+    {
+      "id": "zhang-liang-strategist",
+      "name": "张良 · 从容",
+      "theme": "楚汉汉初 / 清秀与简册",
+      "note": "清秀椭圆面、细眉敛目、无须；深靛青外衣与米白内袍明确分层，窄肩读简。五官与服色属推演。",
+      "category": "figures",
+      "svg": "zhang-liang-strategist.svg",
+      "png": "zhang-liang-strategist.png"
+    },
+    {
+      "id": "li-guang-frontier-archer",
+      "name": "李广 · 守边",
+      "theme": "西汉 / 猿臂与弓矢",
+      "note": "长颧面、窄眼与灰短髯，风霜边将持弓；深褐披风、土黄袍袖和铁灰甲衣分层，非特定战役复原。",
+      "category": "figures",
+      "svg": "li-guang-frontier-archer.svg",
+      "png": "li-guang-frontier-archer.png"
+    },
+    {
+      "id": "han-xin-campaign-strategy",
+      "name": "韩信 · 审势",
+      "theme": "楚汉汉初 / 札甲与筹策",
+      "note": "转向凝视的青年瘦长面、清晰颌线与无须口鼻；绛红披风衬青灰甲、米白袖，持简审势。面貌属原创推演。",
+      "category": "figures",
+      "svg": "han-xin-campaign-strategy.svg",
+      "png": "han-xin-campaign-strategy.png"
+    }
+  ]
+}

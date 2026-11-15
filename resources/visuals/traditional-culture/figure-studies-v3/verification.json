@@ -1,0 +1,31 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "han-wudi-command",
+      "png": "han-wudi-command.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 375579,
+      "transparent": 1224043
+    },
+    {
+      "id": "huo-qubing-vanguard",
+      "png": "huo-qubing-vanguard.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 276556,
+      "transparent": 1322606
+    },
+    {
+      "id": "red-hare-flight",
+      "png": "red-hare-flight.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 136433,
+      "transparent": 1459312
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

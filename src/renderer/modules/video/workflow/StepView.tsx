@@ -1,6 +1,4 @@
 import {
-  VIDEO_STAGES,
-  VIDEO_STAGE_LABELS,
   stageUnlocked,
   isImportedVideo,
   stageValue,
@@ -8,6 +6,12 @@ import {
   type VideoStage,
 } from '@shared/video-workflow'
 import { cn } from '@/lib/utils'
+import {
+  visibleVideoStages,
+  videoNodeLabel,
+  videoNodeStage,
+} from '@shared/video-workflow-navigation'
+import { productionRevision, productionReady } from '@shared/video-production'
 
 export const revisionStatus = { review: '待审核', approved: '已通过', stale: '需更新' }
 export function StepView({
@@ -30,15 +34,19 @@ export function StepView({
         </p>
       )}
       <ol className="workflow-steps">
-        {(imported ? ['publish' as const] : VIDEO_STAGES).map((stage) => {
-          const index = VIDEO_STAGES.indexOf(stage)
-          const revision = project.stages[stage],
+        {visibleVideoStages(imported).map((stage, index) => {
+          const revision =
+              stage === 'roughcut' ? productionRevision(project) : project.stages[stage],
             unlocked = stageUnlocked(project, stage)
-          const running = project.jobs.some((job) => job.stage === stage && job.state === 'running')
+          const running = project.jobs.some(
+            (job) => videoNodeStage(job.stage) === stage && job.state === 'running',
+          )
           const status = running
             ? '生成中'
             : revision
-              ? revisionStatus[revision.status]
+              ? stage === 'roughcut' && revision.status === 'approved' && !productionReady(project)
+                ? '待确认发布'
+                : revisionStatus[revision.status]
               : unlocked
                 ? '待开始'
                 : '未生成'
@@ -48,24 +56,30 @@ export function StepView({
               className={cn(
                 'workflow-step',
                 active === stage && 'is-active',
-                revision?.status === 'approved' && 'is-approved',
+                (stage === 'roughcut'
+                  ? productionReady(project)
+                  : revision?.status === 'approved') && 'is-approved',
               )}
             >
               <button
                 type="button"
                 aria-current={active === stage ? 'step' : undefined}
-                aria-label={`${index + 1}. ${VIDEO_STAGE_LABELS[stage]}，${status}`}
+                aria-label={`${index + 1}. ${videoNodeLabel(stage)}，${status}`}
                 onClick={() => onSelect(stage)}
                 className="workflow-step-button"
               >
                 <span className="workflow-step-number" aria-hidden="true">
-                  {revision?.status === 'approved' ? (
+                  {(
+                    stage === 'roughcut'
+                      ? productionReady(project)
+                      : revision?.status === 'approved'
+                  ) ? (
                     <span className="material-symbols-outlined text-[18px]">check</span>
                   ) : (
                     String(index + 1).padStart(2, '0')
                   )}
                 </span>
-                <span className="workflow-step-label">{VIDEO_STAGE_LABELS[stage]}</span>
+                <span className="workflow-step-label">{videoNodeLabel(stage)}</span>
                 <span className="workflow-step-status">{status}</span>
               </button>
             </li>

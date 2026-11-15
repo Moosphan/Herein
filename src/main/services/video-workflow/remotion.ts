@@ -12,14 +12,16 @@ import { createRequire } from 'node:module'
 import { basename, dirname, join } from 'node:path'
 import type { RenderMusic, WorkflowRuntime } from '../../../shared/video-workflow'
 import { workflowCommand } from './process'
+import { nativeRenderFailure } from './remotion-repair'
 import {
   NATIVE_REMOTION_ENTRY,
+  NATIVE_REMOTION_ENTRY_V1,
   remotionPackageDirectory,
   validateNativeSources,
 } from './remotion-native'
 
 export const REMOTION_PUBLIC_FILE =
-  /^[a-z0-9-]+\.(html|png|jpg|jpeg|webp|svg|wav|mp3|m4a|ogg|flac|mp4|woff|woff2)$/
+  /^[a-z0-9-]+\.(html|png|jpg|jpeg|webp|svg|wav|mp3|m4a|ogg|flac|mp4|woff|woff2|ttf|otf)$/
 
 export const REMOTION_VERSION = '4.0.541'
 export const REMOTION_FILES = ['remotion.tsx', 'composition.json', 'package.json']
@@ -155,9 +157,10 @@ export async function renderRemotion(
 ) {
   signal.throwIfAborted()
   const entry = readFileSync(join(cwd, 'remotion.tsx'), 'utf8')
-  if (entry !== REMOTION_ENTRY && entry !== NATIVE_REMOTION_ENTRY)
+  const native = entry === NATIVE_REMOTION_ENTRY || entry === NATIVE_REMOTION_ENTRY_V1
+  if (entry !== REMOTION_ENTRY && !native)
     throw new Error('冻结 Remotion 入口与应用可信模板不一致，请重新生成粗剪')
-  if (entry === NATIVE_REMOTION_ENTRY) {
+  if (native) {
     const settings = JSON.parse(readFileSync(join(cwd, 'composition.json'), 'utf8'))
     if (
       !Array.isArray(settings.sourceFiles) ||
@@ -191,35 +194,43 @@ export async function renderRemotion(
   const publicDirectory = join(cwd, 'public')
   mkdirSync(publicDirectory, { recursive: true })
   for (const name of readdirSync(cwd))
-    if (REMOTION_PUBLIC_FILE.test(name)) copyFileSync(join(cwd, name), join(publicDirectory, name))
+    if (REMOTION_PUBLIC_FILE.test(name) && !['roughcut.mp4', 'final.mp4'].includes(name))
+      copyFileSync(join(cwd, name), join(publicDirectory, name))
   const output = join(cwd, final ? 'final.mp4' : 'roughcut.mp4')
   phase(`Remotion ${REMOTION_VERSION} · 按帧合成 · 单并发`)
-  await workflowCommand(
-    script ? runtime.nodePath : runtime.remotionPath!,
-    [
-      ...(script ? [runtime.remotionPath!] : []),
-      'render',
-      join(cwd, 'remotion.tsx'),
-      'Video',
-      output,
-      '--public-dir',
-      publicDirectory,
-      '--codec=h264',
-      '--pixel-format=yuv420p',
-      '--concurrency=1',
-      '--crf',
-      final ? '18' : '23',
-      '--timeout=60000',
-      '--log=error',
-      ...(runtime.remotionBrowserPath ? ['--browser-executable', runtime.remotionBrowserPath] : []),
-    ],
-    {
-      cwd,
-      signal,
-      timeout: 3600000,
-      timeoutMessage: 'Remotion 合成超时，原版本已保留；请检查浏览器或缩短视频后重试',
-      nodePath: runtime.nodePath,
-    },
-  )
+  try {
+    await workflowCommand(
+      script ? runtime.nodePath : runtime.remotionPath!,
+      [
+        ...(script ? [runtime.remotionPath!] : []),
+        'render',
+        join(cwd, 'remotion.tsx'),
+        'Video',
+        output,
+        '--public-dir',
+        publicDirectory,
+        '--codec=h264',
+        '--pixel-format=yuv420p',
+        '--concurrency=1',
+        '--crf',
+        '18',
+        '--timeout=60000',
+        '--log=error',
+        ...(runtime.remotionBrowserPath
+          ? ['--browser-executable', runtime.remotionBrowserPath]
+          : []),
+      ],
+      {
+        cwd,
+        signal,
+        timeout: 3600000,
+        timeoutMessage: 'Remotion 合成超时，原版本已保留；请检查浏览器或缩短视频后重试',
+        nodePath: runtime.nodePath,
+      },
+    )
+  } catch (error) {
+    if (!final && native) throw nativeRenderFailure(error)
+    throw error
+  }
   return output
 }

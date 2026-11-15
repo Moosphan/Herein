@@ -12,5 +12,12 @@
     "types": ["vite/client", "node"],
     "resolveJsonModule": true
   },
-  "include": ["src", "vite.config.ts", "playwright.config.ts", "checks"]
+  "include": [
+    "src",
+    "culture-gallery",
+    "vite.config.ts",
+    "vite.culture-gallery.config.ts",
+    "playwright.config.ts",
+    "checks"
+  ]
 }

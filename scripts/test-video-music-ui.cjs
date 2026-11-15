@@ -84,13 +84,11 @@ app.whenReady().then(async () => {
     window.setMinimumSize(720, 640)
     window.setSize(1440, 1100)
     await waitFor('document.querySelector("nav")', 'app')
-    await evaluate(
-      "location.hash='/video'",
-    )
+    await evaluate("location.hash='/video'")
     await waitFor('document.querySelector(".workflow-project-row")', 'projects')
     await click('继续创作')
-    await waitFor('document.querySelectorAll(".workflow-step-button").length===8', 'stages')
-    await evaluate('document.querySelectorAll(".workflow-step-button")[6].click()')
+    await waitFor('document.querySelectorAll(".workflow-step-button").length===7', 'stages')
+    await evaluate('document.querySelectorAll(".workflow-step-button")[5].click()')
     await waitFor('document.querySelector("[data-music-summary]")', 'compact music summary')
     assert.equal(await evaluate('Boolean(document.getElementById("workflow-music-volume"))'), false)
     assert.equal(

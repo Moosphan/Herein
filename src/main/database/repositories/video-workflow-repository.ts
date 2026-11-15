@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import { productionRevision, productionSourceProject } from '../../../shared/video-production'
 import { compareFinalRender } from '../../../shared/video-render-comparison'
 import { createHash, randomUUID } from 'node:crypto'
 import {
@@ -27,6 +28,7 @@ import {
   type WorkflowHistoryPage,
   inferVideoFormat,
   audioSourceRevisions,
+  audioJobTrackIds,
   isVideoRenderEngine,
   type VideoRenderEngine,
 } from '../../../shared/video-workflow'
@@ -294,8 +296,17 @@ export class VideoWorkflowRepository {
         stages,
         nextStage: render?.imported
           ? 'publish'
-          : (VIDEO_STAGES.find((stage) => stages[stage] !== 'approved') ?? 'publish'),
-        approvedCount: Object.values(stages).filter((status) => status === 'approved').length,
+          : (VIDEO_STAGES.slice(0, VIDEO_STAGES.indexOf('render')).find(
+              (stage) => stages[stage] !== 'approved',
+            ) ?? (stages.render === 'approved' ? 'publish' : 'roughcut')),
+        approvedCount: render?.imported
+          ? ['render', 'publish'].filter((stage) => stages[stage as VideoStage] === 'approved')
+              .length
+          : VIDEO_STAGES.filter((stage) => stage !== 'render').filter((stage) =>
+              stage === 'roughcut'
+                ? stages.roughcut === 'approved' && stages.render === 'approved'
+                : stages[stage] === 'approved',
+            ).length,
         imported: Boolean(render?.imported),
         format,
         duration: render?.duration ?? row.audio_duration ?? brief?.duration ?? undefined,
@@ -390,10 +401,11 @@ export class VideoWorkflowRepository {
     }
     return result
   }
-  historyAssets(id: string, kind: 'cover' | 'music') {
+  historyAssets(id: string, kind: 'cover' | 'music', platform: 'bilibili' | 'douyin' = 'bilibili') {
     if (kind !== 'cover' && kind !== 'music') throw new Error('无效历史素材')
+    if (platform !== 'bilibili' && platform !== 'douyin') throw new Error('无效封面平台')
     const stage = kind === 'cover' ? 'publish' : 'render'
-    const path = kind === 'cover' ? '$.platforms.bilibili.cover' : '$.music'
+    const path = kind === 'cover' ? `$.platforms.${platform}.cover` : '$.music'
     return this.db
       .prepare(
         'SELECT version,json_extract(payload,?) AS value FROM video_workflow_revisions WHERE project_id=? AND stage=? AND json_extract(payload,?) IS NOT NULL ORDER BY version DESC',
@@ -514,9 +526,9 @@ export class VideoWorkflowRepository {
       jobs: (
         this.db
           .prepare(
-            'SELECT * FROM video_workflow_jobs WHERE project_id=? ORDER BY rowid DESC LIMIT 100',
+            "SELECT * FROM video_workflow_jobs WHERE project_id=? AND (state='running' OR rowid IN (SELECT rowid FROM video_workflow_jobs WHERE project_id=? ORDER BY rowid DESC LIMIT 100)) ORDER BY rowid DESC",
           )
-          .all(id) as JobRow[]
+          .all(id, id) as JobRow[]
       ).map((item) => this.mapJob(item)),
       publications: (
         this.db
@@ -731,6 +743,57 @@ export class VideoWorkflowRepository {
       return this.get(id)
     })()
   }
+  approveProduction(
+    id: string,
+    revisionId: string,
+    expected: number,
+    requestId: string,
+    note = '',
+  ) {
+    return this.db.transaction(() => {
+      if (this.request(id, requestId, ['approve-production', revisionId])) return this.get(id)
+      const project = this.current(id, expected)
+      const current = project.stages.roughcut
+      if (!current || current.id !== revisionId) throw new Error('审核版本已发生变化，请重新检查')
+      if (project.jobs.some((job) => job.state === 'running'))
+        throw new Error('请等待当前任务结束再审核')
+      const key = fingerprint([requestId])
+      const approved = this.approve(
+        id,
+        'roughcut',
+        revisionId,
+        expected,
+        `production-review:${key}`,
+        note,
+      )
+      const prior = approved.stages.render
+      if (
+        prior?.status === 'approved' &&
+        stageValue(approved, 'render')?.sourceRoughcut === revisionId
+      )
+        return approved
+      const frozen = this.save(
+        id,
+        'render',
+        {
+          ...current.payload,
+          sourceRoughcut: revisionId,
+        },
+        approved.revision,
+        `production-freeze:${key}`,
+        '视频制作审核通过，沿用同一视频文件和冻结工程；未再次渲染或创作',
+        false,
+      )
+      return this.approve(
+        id,
+        'render',
+        frozen.stages.render!.id,
+        frozen.revision,
+        `production-publish:${key}`,
+        note,
+      )
+    })()
+  }
   archive(id: string, archived: boolean, expected: number) {
     return this.db.transaction(() => {
       const project = this.get(id)
@@ -774,8 +837,14 @@ export class VideoWorkflowRepository {
       }
       const project = this.current(id, expected)
       this.dependencies(project, stage)
-      if (project.jobs.some((job) => job.state === 'running'))
-        throw new Error('项目已有运行中的任务，请等待或取消')
+      const running = project.jobs.filter((job) => job.state === 'running')
+      const targets = audioJobTrackIds({ stage, operation })
+      if (running.length) {
+        if (!targets.length || running.some((job) => !audioJobTrackIds(job).length))
+          throw new Error('项目已有运行中的任务，请等待或取消')
+        if (running.some((job) => audioJobTrackIds(job).some((id) => targets.includes(id))))
+          throw new Error('所选片段已有运行中的配音修改任务，请等待完成或取消该任务')
+      }
       const jobId = randomUUID(),
         now = new Date().toISOString()
       this.db
@@ -844,6 +913,36 @@ export class VideoWorkflowRepository {
       .prepare('UPDATE video_workflow_jobs SET audio_progress=?,updated_at=? WHERE id=?')
       .run(JSON.stringify(progress), new Date().toISOString(), id)
   }
+  prepareAudioRegeneration(id: string, sources: Record<string, string | undefined>) {
+    return this.db.transaction(() => {
+      const job = this.job(id)
+      if (!job || job.state !== 'running' || !audioJobTrackIds(job).length)
+        throw new Error('配音修改任务已结束')
+      const project = this.get(job.projectId)
+      if (
+        Object.entries(sources).some(
+          ([stage, revision]) => project.stages[stage as VideoStage]?.id !== revision,
+        )
+      )
+        throw new Error('配音来源已变化，请根据当前口播重新提交修改意见')
+      this.dependencies(project, 'audio')
+      if (
+        project.stages.audio?.status === 'stale' ||
+        audioJobTrackIds(job).some(
+          (id) => !stageValue(project, 'audio')?.tracks.some((track) => track.file.id === id),
+        )
+      )
+        throw new Error('所选配音片段已变化，请重新提交修改意见')
+      this.db
+        .prepare('UPDATE video_workflow_jobs SET expected_revision=?,operation=? WHERE id=?')
+        .run(
+          project.revision,
+          JSON.stringify({ ...job.operation, sourceVersion: project.stages.audio?.version }),
+          id,
+        )
+      return { project, job: this.job(id)! }
+    })()
+  }
   markMotionJob(id: string) {
     this.db
       .prepare("UPDATE video_workflow_jobs SET kind='motion-plan' WHERE id=? AND state='running'")
@@ -853,7 +952,9 @@ export class VideoWorkflowRepository {
     const job = this.job(id)
     if (!job || job.state !== 'running' || job.kind !== 'motion-plan')
       throw new Error('修改计划任务已结束')
-    const project = renderSourceProject(this.current(job.projectId, job.expectedRevision))
+    const project = renderSourceProject(
+      productionSourceProject(this.current(job.projectId, job.expectedRevision)),
+    )
     const scenes = stageValue(project, 'storyboard')!.scenes.map((scene) => ({
       id: scene.id,
       duration: stageValue(project, 'audio')!
@@ -892,8 +993,21 @@ export class VideoWorkflowRepository {
           "UPDATE video_workflow_jobs SET state='cancelled',phase='已放弃修改计划，保留原视频与历史',updated_at=? WHERE project_id=? AND kind='motion-plan' AND state<>'cancelled'",
         )
         .run(new Date().toISOString(), projectId)
-      const roughcut = project.stages.roughcut
+      let roughcut = project.stages.roughcut
       if (roughcut?.status === 'stale' && stageUnlocked(project, 'roughcut')) {
+        const visible = productionRevision(project)
+        if (visible?.stage === 'render') {
+          const restored = this.save(
+            projectId,
+            'roughcut',
+            visible.payload,
+            project.revision,
+            `retain-video:${projectId}:${expected}`,
+            '已取消修改计划，沿用当前预览的最新视频及冻结来源，等待重新审核',
+            false,
+          )
+          roughcut = restored.stages.roughcut!
+        }
         const now = new Date().toISOString()
         this.db
           .prepare(
@@ -1029,7 +1143,23 @@ export class VideoWorkflowRepository {
           id,
         )
       }
-      this.updateJob(id, { state: 'succeeded', phase: '已完成，等待人工审核' })
+      let repairs = 0
+      if (job.stage === 'roughcut') {
+        try {
+          repairs =
+            JSON.parse((result.stages[job.stage]!.payload as StagePayloads['render']).checks)
+              .nativeCreation?.repairs ?? 0
+        } catch {
+          repairs = 0
+        }
+      }
+      this.updateJob(id, {
+        state: 'succeeded',
+        phase:
+          repairs > 0
+            ? `已完成 · 原生工程自动修复 ${repairs}/2 次，等待人工审核`
+            : '已完成，等待人工审核',
+      })
       return { ...result, jobs: this.get(job.projectId).jobs }
     })()
   }

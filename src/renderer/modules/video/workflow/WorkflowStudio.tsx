@@ -18,8 +18,6 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
 import {
-  VIDEO_STAGES,
-  VIDEO_STAGE_LABELS,
   stageValue,
   projectVideoFormat,
   videoFormatLabel,
@@ -34,6 +32,7 @@ import { StepView, revisionStatus } from './StepView'
 import { StageWorkspace } from './StageWorkspace'
 import { WorkflowDialog } from './WorkflowDialog'
 import { useWorkflowHistory, useWorkflowHistoryRestore } from './useWorkflowHistory'
+import { nextVideoNode, videoNodeLabel } from '@shared/video-workflow-navigation'
 
 function WorkflowProjectCover({ project }: { project: VideoProjectSummary }) {
   const [failedSource, setFailedSource] = useState('')
@@ -259,7 +258,7 @@ export function WorkflowStudio({
             project={state.project}
             stage={stage}
             onProject={state.select}
-            onNext={() => setStage(VIDEO_STAGES[Math.min(VIDEO_STAGES.indexOf(stage) + 1, 7)])}
+            onNext={() => setStage(nextVideoNode(stage))}
             refresh={state.refresh}
             onVoiceover={onVoiceover}
             restoredPayload={restored?.stage === stage ? restored.payload : undefined}
@@ -275,7 +274,8 @@ export function WorkflowStudio({
               projectHistory.items.map((item) => (
                 <div key={item.id} className="workflow-history-row">
                   <strong>
-                    {VIDEO_STAGE_LABELS[item.stage]} · v{item.version}
+                    {videoNodeLabel(item.stage)}
+                    {item.stage === 'render' ? ' · 交付记录' : ''} · v{item.version}
                   </strong>
                   <span className="workflow-muted">
                     {revisionStatus[item.status]} · {new Date(item.createdAt).toLocaleString()}
@@ -475,10 +475,10 @@ export function WorkflowStudio({
                       </div>
                       <div className="workflow-project-state">
                         <Badge variant="low">
-                          {project.archived ? '已归档' : VIDEO_STAGE_LABELS[current]}
+                          {project.archived ? '已归档' : videoNodeLabel(current)}
                         </Badge>
                         <span className="workflow-muted">
-                          {project.approvedCount} / {project.imported ? 2 : 8} 步已审核
+                          {project.approvedCount} / {project.imported ? 2 : 7} 步已审核
                         </span>
                       </div>
                       <div className="workflow-project-actions">

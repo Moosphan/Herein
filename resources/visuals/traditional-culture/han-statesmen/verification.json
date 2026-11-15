@@ -1,0 +1,47 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "xiao-he-records",
+      "png": "xiao-he-records.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 237754,
+      "transparent": 1362193
+    },
+    {
+      "id": "chen-ping-counsel",
+      "png": "chen-ping-counsel.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 201352,
+      "transparent": 1398648
+    },
+    {
+      "id": "zhou-bo-resolve",
+      "png": "zhou-bo-resolve.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 249505,
+      "transparent": 1350495
+    },
+    {
+      "id": "wei-qing-command",
+      "png": "wei-qing-command.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 237656,
+      "transparent": 1362241
+    },
+    {
+      "id": "sima-qian-writing",
+      "png": "sima-qian-writing.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 217742,
+      "transparent": 1382249
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

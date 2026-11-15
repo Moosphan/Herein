@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "bronze-tiger-tally",
+      "png": "bronze-tiger-tally.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 166291,
+      "transparent": 1421741
+    },
+    {
+      "id": "lobed-bronze-mirror",
+      "png": "lobed-bronze-mirror.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 439752,
+      "transparent": 1149072
+    },
+    {
+      "id": "bamboo-bound-slips",
+      "png": "bamboo-bound-slips.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 283088,
+      "transparent": 1316899
+    },
+    {
+      "id": "stone-sundial",
+      "png": "stone-sundial.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 218992,
+      "transparent": 1380886
+    },
+    {
+      "id": "herbal-grinding-trough",
+      "png": "herbal-grinding-trough.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 153350,
+      "transparent": 1446505
+    },
+    {
+      "id": "seal-and-clay",
+      "png": "seal-and-clay.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 342232,
+      "transparent": 1247805
+    },
+    {
+      "id": "wooden-pipa",
+      "png": "wooden-pipa.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 128735,
+      "transparent": 1470843
+    },
+    {
+      "id": "caravan-bells-and-bag",
+      "png": "caravan-bells-and-bag.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 159508,
+      "transparent": 1440307
+    },
+    {
+      "id": "academy-timber-corridor",
+      "png": "academy-timber-corridor.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 313052,
+      "transparent": 1283413
+    },
+    {
+      "id": "ginkgo-autumn-rock",
+      "png": "ginkgo-autumn-rock.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 96592,
+      "transparent": 1502829
+    },
+    {
+      "id": "orchid-by-rock",
+      "png": "orchid-by-rock.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 90716,
+      "transparent": 1503093
+    },
+    {
+      "id": "banner-and-war-drum",
+      "png": "banner-and-war-drum.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 179245,
+      "transparent": 1420709
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

@@ -47,16 +47,19 @@ export function apply(ctx) {
 `
 
 function redactDeepSeekFailure(error: unknown): Error {
-  return new Error(
-    (error instanceof Error ? error.message : String(error))
-      .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [已隐藏]')
-      .replace(
-        /((?:DEEPSEEK_API_KEY|api[_-]?key|access[_-]?token)\s*[=:]\s*)[^\s"',}]+/gi,
-        '$1[已隐藏]',
-      )
-      .replace(/sk-[A-Za-z0-9_-]{8,}/g, '[已隐藏]')
-      .replace(/https?:\/\/[^\s/@]+:[^\s/@]+@/g, 'https://[已隐藏]@'),
-  )
+  const message = (error instanceof Error ? error.message : String(error))
+    .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [已隐藏]')
+    .replace(
+      /((?:DEEPSEEK_API_KEY|api[_-]?key|access[_-]?token)\s*[=:]\s*)[^\s"',}]+/gi,
+      '$1[已隐藏]',
+    )
+    .replace(/sk-[A-Za-z0-9_-]{8,}/g, '[已隐藏]')
+    .replace(/https?:\/\/[^\s/@]+:[^\s/@]+@/g, 'https://[已隐藏]@')
+  if (/\bMISSING_CREDENTIAL\b/.test(message))
+    return new Error(
+      `DeepSeek Harness 未配置当前模型的 API 凭据，请在 Harness 的 Models 页面保存对应 API key 后重试；原版本已保留。\n${message}`,
+    )
+  return new Error(message)
 }
 
 export async function runDeepSeek(
@@ -73,6 +76,7 @@ export async function runDeepSeek(
   writeFileSync(
     patch,
     JSON.stringify([
+      { id: 'credentials', disabled: false },
       { id: 'sandbox-policy', config: { mode: 'read-only', workspaceRoot: cwd } },
       { id: 'approval', config: { policy: 'never' } },
       {

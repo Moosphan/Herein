@@ -14,9 +14,11 @@ import {
 import { mediaUrl, workflowCall } from './useWorkflow'
 import { WorkflowDialog } from './WorkflowDialog'
 import { useWorkflowAssets } from './useWorkflowHistory'
+import { FrameCoverPicker } from './FrameCoverPicker'
 
 export function PublicationCoverPanel({
   project,
+  platform = 'bilibili',
   value,
   disabled,
   canGenerate,
@@ -25,6 +27,7 @@ export function PublicationCoverPanel({
   onGenerate,
 }: {
   project: VideoProject
+  platform?: 'bilibili' | 'douyin'
   value: PlatformMetadata
   disabled: boolean
   canGenerate: boolean
@@ -32,7 +35,7 @@ export function PublicationCoverPanel({
   onChange: (cover: PublicationCover | undefined) => void
   onGenerate: (options: CoverGeneration) => Promise<boolean>
 }) {
-  const [method, setMethod] = useState<PublicationCover['method']>('code')
+  const [method, setMethod] = useState<CoverGeneration['method']>('code')
   const [feedback, setFeedback] = useState('')
   const [open, setOpen] = useState(false)
   const [generationOpen, setGenerationOpen] = useState(false)
@@ -47,7 +50,10 @@ export function PublicationCoverPanel({
   const previewButton = useRef<HTMLButtonElement>(null)
   const generateButton = useRef<HTMLButtonElement>(null)
   const submissionPending = useRef(false)
-  const historicalCovers = useWorkflowAssets<PublicationCover>(project, 'cover')
+  const historicalCovers = useWorkflowAssets<PublicationCover>(project, 'cover', platform)
+  const platformLabel = platform === 'bilibili' ? 'B 站' : '抖音'
+  const methodLabel = (cover: PublicationCover) =>
+    cover.method === 'frame' ? '视频选帧' : cover.method === 'code' ? 'AI 代码' : 'Image2'
   const versions = useMemo(() => {
     const found = new Map<string, { cover: PublicationCover; version: number }>()
     for (const revision of [...historicalCovers.items].reverse()) {
@@ -75,9 +81,18 @@ export function PublicationCoverPanel({
       ? selected.feedFile
       : selected.file
     : stageValue(project, 'render')?.cover
-  const aspectRatio = ratio === 'feed' ? 4 / 3 : 16 / 9
+  const aspectRatio =
+    platform === 'douyin'
+      ? selected
+        ? selected.width / selected.height
+        : imageSize
+          ? imageSize.width / imageSize.height
+          : 9 / 16
+      : ratio === 'feed'
+        ? 4 / 3
+        : 16 / 9
   const dimensions = selected
-    ? `1600×${ratio === 'feed' ? '1200' : '900'}`
+    ? `${ratio === 'feed' ? selected.feedWidth : selected.width}×${ratio === 'feed' ? selected.feedHeight : selected.height}`
     : imageSize?.id === file?.id
       ? `${imageSize?.width}×${imageSize?.height}`
       : ''
@@ -121,7 +136,7 @@ export function PublicationCoverPanel({
   return (
     <section
       className="workflow-section workflow-publication-cover"
-      aria-label="B 站投稿封面"
+      aria-label={`${platformLabel}投稿封面`}
       data-publication-cover
     >
       {historicalCovers.error && (
@@ -130,19 +145,29 @@ export function PublicationCoverPanel({
         </p>
       )}
       <div className="workflow-stage-heading">
-        <h4 className="text-body-sm font-semibold">B 站投稿封面</h4>
-        <Button
-          ref={generateButton}
-          size="sm"
-          disabled={!canGenerate}
-          onClick={() => {
-            setGenerationError('')
-            setGenerationOpen(true)
-          }}
-          data-cover-generate
-        >
-          {generating ? '正在生成封面…' : value.cover ? '重新生成封面' : 'AI 生成封面'}
-        </Button>
+        <h4 className="text-body-sm font-semibold">{platformLabel}投稿封面</h4>
+        <div className="workflow-toolbar">
+          <FrameCoverPicker
+            project={project}
+            platform={platform}
+            disabled={disabled || generating}
+            onChange={onChange}
+          />
+          {platform === 'bilibili' && (
+            <Button
+              ref={generateButton}
+              size="sm"
+              disabled={!canGenerate}
+              onClick={() => {
+                setGenerationError('')
+                setGenerationOpen(true)
+              }}
+              data-cover-generate
+            >
+              {generating ? '正在生成封面…' : value.cover ? '重新生成封面' : 'AI 生成封面'}
+            </Button>
+          )}
+        </div>
       </div>
       <div className="workflow-cover-content">
         <div className="workflow-cover-thumbnail">
@@ -151,7 +176,7 @@ export function PublicationCoverPanel({
               <img
                 src={mediaUrl(project.id, file)}
                 style={{ aspectRatio }}
-                alt={selected ? 'B 站投稿封面候选' : '当前使用成片截帧'}
+                alt={selected ? `${platformLabel}投稿封面候选` : '当前使用成片截帧'}
                 onError={() => setImageError(true)}
                 onLoad={(event) => imageLoaded(event.currentTarget)}
               />
@@ -181,14 +206,21 @@ export function PublicationCoverPanel({
             </div>
           </div>
           <p className="workflow-muted mt-2" data-cover-source>
-            {selected ? '独立封面' : '成片截帧'}
+            {selected?.method === 'frame' ? '视频选帧' : selected ? '独立封面' : '成片截帧'}
             {dimensions && ` · ${dimensions}`}
-            {selected
-              ? ` · ${ratio === 'feed' ? '4:3' : '16:9'}`
-              : ratio === 'feed'
-                ? ' · 4:3 裁切预览'
-                : ' · 16:9'}
+            {platform === 'douyin'
+              ? ' · 原视频画幅'
+              : selected
+                ? ` · ${ratio === 'feed' ? '4:3' : '16:9'}`
+                : ratio === 'feed'
+                  ? ' · 4:3 裁切预览'
+                  : ' · 16:9'}
           </p>
+          {selected?.frameSource && (
+            <p className="workflow-muted">
+              {selected.frameSource.time.toFixed(3)} 秒 · 第 {selected.frameSource.frame} 帧
+            </p>
+          )}
         </div>
         <div className="workflow-cover-summary">
           <p className="workflow-muted" role="status" data-cover-status>
@@ -198,9 +230,15 @@ export function PublicationCoverPanel({
                 ? '此封面对应旧成片，请重新生成适配当前成片的封面。'
                 : value.cover
                   ? '已纳入发布资料；更换后需保存并重新审核，视频无需重新渲染。'
-                  : '当前沿用成片截帧。AI 可按视频内容与风格生成独立封面。'}
+                  : platform === 'bilibili'
+                    ? '当前沿用成片截帧。可选视频帧或 AI 生成独立封面。'
+                    : '当前沿用成片截帧，可从正式成片选择其他视频帧。'}
           </p>
-          <p className="workflow-muted">首页推荐 4:3 · 1600×1200 / 个人空间 16:9 · 1600×900</p>
+          <p className="workflow-muted">
+            {platform === 'bilibili'
+              ? '首页推荐 4:3 · 1600×1200 / 个人空间 16:9 · 1600×900'
+              : '使用所选视频帧，保留原视频画幅'}
+          </p>
           {versions.length > 0 && (
             <div className="workflow-toolbar">
               <fieldset disabled={disabled} className="min-w-0 flex-1">
@@ -212,7 +250,7 @@ export function PublicationCoverPanel({
                     { value: 'render-frame', label: '原成片截帧' },
                     ...versions.map(({ cover, version }) => ({
                       value: cover.file.id,
-                      label: `${cover.file.id === value.cover?.file.id ? '当前 · ' : ''}发布 v${version} · ${timestamp(cover)} · ${cover.method === 'code' ? 'AI 代码' : 'Image2'}`,
+                      label: `${cover.file.id === value.cover?.file.id ? '当前 · ' : ''}发布 v${version} · ${timestamp(cover)} · ${methodLabel(cover)}`,
                     })),
                   ]}
                 />
@@ -264,7 +302,7 @@ export function PublicationCoverPanel({
               label="封面生成方式"
               value={method}
               compact
-              onChange={(value) => setMethod(value as PublicationCover['method'])}
+              onChange={(value) => setMethod(value as CoverGeneration['method'])}
               options={[
                 { value: 'code', label: 'AI 代码' },
                 { value: 'image2', label: 'Image2' },
@@ -301,23 +339,27 @@ export function PublicationCoverPanel({
         onOpenChange={setOpen}
         title="投稿封面预览"
         description={
-          selected
-            ? '两种比例对应独立封面文件，可分别核对文字、主体与安全边距。'
-            : '当前是原成片截帧；4:3 仅居中裁切预览，尚未生成独立封面，不会修改投稿文件。'
+          platform === 'douyin'
+            ? '保留原视频画幅的投稿封面。'
+            : selected
+              ? '两种比例对应独立封面文件，可分别核对文字、主体与安全边距。'
+              : '当前是原成片截帧；4:3 仅居中裁切预览，尚未生成独立封面，不会修改投稿文件。'
         }
         returnFocus={previewButton}
       >
         <div className="workflow-toolbar">
-          <VoiceRadioGroup
-            label="预览比例"
-            value={ratio}
-            onChange={setRatio}
-            compact
-            options={[
-              { value: 'feed', label: '首页推荐 4:3' },
-              { value: 'landscape', label: '个人空间 16:9' },
-            ]}
-          />
+          {platform === 'bilibili' && (
+            <VoiceRadioGroup
+              label="预览比例"
+              value={ratio}
+              onChange={setRatio}
+              compact
+              options={[
+                { value: 'feed', label: '首页推荐 4:3' },
+                { value: 'landscape', label: '个人空间 16:9' },
+              ]}
+            />
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -354,7 +396,9 @@ export function PublicationCoverPanel({
         )}
         {selected && (
           <p className="workflow-muted mt-3">
-            {timestamp(selected)} · {selected.method === 'code' ? 'AI 代码' : 'GPT Image 2'}
+            {timestamp(selected)} · {methodLabel(selected)}
+            {selected.frameSource &&
+              ` · ${selected.frameSource.time.toFixed(3)} 秒 · 第 ${selected.frameSource.frame} 帧`}
             {selected.feedback && ` · 修改建议：${selected.feedback}`}
           </p>
         )}

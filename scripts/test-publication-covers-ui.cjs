@@ -235,6 +235,23 @@ app.whenReady().then(async () => {
     assert.equal(imageArgs[imageArgs.indexOf('--model') + 1], 'gpt-image-2')
     assert.equal(imageArgs[imageArgs.indexOf('--size') + 1], '1600x1200')
     assert.deepEqual(nativeImage.createFromPath(join(root, image2.file.path)).getSize(), { width: 1600, height: 900 })
+    writeFileSync(join(root, 'cover-mode'), 'jpeg')
+    await call('generate', {
+      projectId: initial.id,
+      stage: 'publish',
+      executor: 'codex',
+      expectedRevision: project.revision,
+      requestId: 'image2-jpeg-cover',
+      cover: { method: 'image2' },
+    })
+    project = await completed()
+    assert.equal(project.jobs[0].state, 'succeeded', project.jobs[0].error)
+    assert.deepEqual(
+      nativeImage.createFromPath(
+        join(root, project.stages.publish.payload.platforms.bilibili.cover.feedFile.path),
+      ).getSize(),
+      { width: 1600, height: 1200 },
+    )
     writeFileSync(join(root, 'cover-mode'), 'download-error')
     const recoveryJob = await call('generate', { projectId: initial.id, stage: 'publish', executor: 'codex', expectedRevision: project.revision, requestId: 'recover-image2-cover', cover: { method: 'image2' } })
     project = await completed()

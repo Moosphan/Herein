@@ -1,0 +1,39 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "autumn-falls",
+      "png": "autumn-falls.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 374202,
+      "transparent": 1129121
+    },
+    {
+      "id": "vermilion-gate",
+      "png": "vermilion-gate.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 483362,
+      "transparent": 993294
+    },
+    {
+      "id": "porcelain-peonies",
+      "png": "porcelain-peonies.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 181546,
+      "transparent": 1352963
+    },
+    {
+      "id": "desert-caravan",
+      "png": "desert-caravan.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 465398,
+      "transparent": 1029095
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

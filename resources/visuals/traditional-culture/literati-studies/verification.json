@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "crabapple-sparrow",
+      "png": "crabapple-sparrow.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 154154,
+      "transparent": 1444353
+    },
+    {
+      "id": "finger-citron-dish",
+      "png": "finger-citron-dish.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 211542,
+      "transparent": 1388094
+    },
+    {
+      "id": "lingzhi-scholar-stone",
+      "png": "lingzhi-scholar-stone.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 200451,
+      "transparent": 1399042
+    },
+    {
+      "id": "cricket-autumn-grass",
+      "png": "cricket-autumn-grass.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 138660,
+      "transparent": 1459652
+    },
+    {
+      "id": "daylily-dragonfly",
+      "png": "daylily-dragonfly.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 163520,
+      "transparent": 1435560
+    },
+    {
+      "id": "kingfisher-reeds",
+      "png": "kingfisher-reeds.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 131877,
+      "transparent": 1467183
+    },
+    {
+      "id": "lacquer-carry-box",
+      "png": "lacquer-carry-box.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 306492,
+      "transparent": 1293508
+    },
+    {
+      "id": "embroidered-silk-pouch",
+      "png": "embroidered-silk-pouch.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 203793,
+      "transparent": 1396180
+    },
+    {
+      "id": "celadon-ewer-bowl",
+      "png": "celadon-ewer-bowl.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 269890,
+      "transparent": 1329961
+    },
+    {
+      "id": "landscape-folding-fan",
+      "png": "landscape-folding-fan.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 295899,
+      "transparent": 1304101
+    },
+    {
+      "id": "awning-boat-stone-bridge",
+      "png": "awning-boat-stone-bridge.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 320317,
+      "transparent": 1271667
+    },
+    {
+      "id": "bamboo-raft-creek",
+      "png": "bamboo-raft-creek.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 374456,
+      "transparent": 1209235
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

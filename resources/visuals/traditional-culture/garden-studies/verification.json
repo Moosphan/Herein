@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "wisteria-cascade",
+      "png": "wisteria-cascade.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 177606,
+      "transparent": 1418896
+    },
+    {
+      "id": "persimmon-autumn",
+      "png": "persimmon-autumn.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 160753,
+      "transparent": 1438250
+    },
+    {
+      "id": "magnolia-spring",
+      "png": "magnolia-spring.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 163141,
+      "transparent": 1435607
+    },
+    {
+      "id": "magpies-plum",
+      "png": "magpies-plum.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 126406,
+      "transparent": 1472804
+    },
+    {
+      "id": "rooster-dawn",
+      "png": "rooster-dawn.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 212505,
+      "transparent": 1374253
+    },
+    {
+      "id": "geese-reed-water",
+      "png": "geese-reed-water.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 200432,
+      "transparent": 1384423
+    },
+    {
+      "id": "jade-ruyi",
+      "png": "jade-ruyi.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 171838,
+      "transparent": 1412102
+    },
+    {
+      "id": "hairpins-comb",
+      "png": "hairpins-comb.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 167082,
+      "transparent": 1430912
+    },
+    {
+      "id": "celadon-pillow",
+      "png": "celadon-pillow.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 327807,
+      "transparent": 1262570
+    },
+    {
+      "id": "tea-basket-hat",
+      "png": "tea-basket-hat.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 256889,
+      "transparent": 1330838
+    },
+    {
+      "id": "earthen-lamp-books",
+      "png": "earthen-lamp-books.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 197125,
+      "transparent": 1388883
+    },
+    {
+      "id": "waterside-pavilion",
+      "png": "waterside-pavilion.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 499700,
+      "transparent": 1076869
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

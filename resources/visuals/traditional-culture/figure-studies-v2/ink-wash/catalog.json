@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "style": "figurative-colored-ink",
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "han-wudi-majesty",
+      "name": "汉武帝 · 临朝",
+      "note": "成熟而克制的帝王意象 · 冕冠玄衣 · 静态收势",
+      "seed": 22031,
+      "svg": "han-wudi-majesty.svg",
+      "png": "han-wudi-majesty.png"
+    },
+    {
+      "id": "huo-qubing-resolve",
+      "name": "霍去病 · 长风",
+      "note": "年轻而专注的统帅意象 · 札甲披风 · 按剑立姿",
+      "seed": 22039,
+      "svg": "huo-qubing-resolve.svg",
+      "png": "huo-qubing-resolve.png"
+    },
+    {
+      "id": "red-hare-stride",
+      "name": "赤兔 · 奔霄",
+      "note": "赤栗骏马意象 · 颈肩承接 · 屈伸错落的奔姿",
+      "seed": 22037,
+      "svg": "red-hare-stride.svg",
+      "png": "red-hare-stride.png"
+    }
+  ]
+}

@@ -92,8 +92,9 @@ export function WorkflowSettings({ open, onClose }: { open: boolean; onClose: ()
             </p>
             <p className="workflow-muted">
               DeepSeek 使用官方 Harness 的 headless 模式（已适配 0.2.1-rc.5），复用其模型和 API
-              配置；需 Node.js 24.9+。headless 默认读取启动环境或 Harness 主目录 .env 中的
-              DEEPSEEK_API_KEY，不直接使用网页登录。可在各阶段“本地执行器”切换，选择会在本机保留。
+              配置；需 Node.js 24.9+。工作流启用 Harness 凭据服务，复用 Models 页面已保存的 API
+              key；也支持 DEEPSEEK_API_KEY 环境配置。仅网页登录不等同于已配置 API key。
+              可在各阶段“本地执行器”切换，选择会在本机保留。
             </p>
             <p className="workflow-muted">
               Image2 使用 gpt-image-2，复用本机 baoyu-imagine 的 API 配置和密钥，可能产生图片 API

@@ -321,7 +321,15 @@ export async function prepareMotionScene(
         if (nodes.some(node => {
           if (node.closest('style,script,iframe,object,embed,base,meta,link,template,form,input,button,video,audio,foreignObject,animate,animateTransform,set,use,defs,mask,clipPath,filter,symbol')) return true;
           const bounds = node.getBoundingClientRect();
-          if (!bounds.width || !bounds.height) return true;
+          if (!bounds.width || !bounds.height) {
+            const style = getComputedStyle(node);
+            const layoutBox = node instanceof HTMLElement && node.offsetWidth > 0 && node.offsetHeight > 0;
+            const visibleStroke = node instanceof SVGGeometryElement &&
+              (bounds.width > 0 || bounds.height > 0) && node.getTotalLength() > 0 &&
+              style.stroke !== 'none' && parseFloat(style.strokeWidth) > 0 &&
+              Number(style.strokeOpacity) > 0;
+            if (!layoutBox && !visibleStroke) return true;
+          }
           for (let current = node; current; current = current.parentElement) {
             const style = getComputedStyle(current);
             if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return true;

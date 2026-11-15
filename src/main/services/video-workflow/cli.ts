@@ -18,6 +18,7 @@ import { workflowCommand } from './process'
 import { BilibiliCatbus } from './catbus'
 import { drawingSkillContext } from './drawing-skills'
 import { parseDeepSeekJson as parseDeepSeekStream, runDeepSeek } from './deepseek'
+import { normalizeAgentMotion } from './agent-motion'
 
 function findExecutable(name: string) {
   const versions = join(homedir(), '.nvm', 'versions', 'node')
@@ -181,6 +182,8 @@ export function parseAgentJson(output: string): unknown {
   } catch (error) {
     if ((error as Error).message === 'Agent 返回执行错误') throw error
   }
+  const fenced = [...text.matchAll(/```json\s*([\s\S]*?)\s*```/gi)]
+  if (fenced.length === 1) text = fenced[0][1].trim()
   text = text.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
   try {
     return JSON.parse(text)
@@ -224,7 +227,9 @@ export async function runAgent(
     if (drawingContext)
       options.onProgress?.('已加载 chinese-ink-elements 绘画技能及人物、笔墨、山水、器物与质检参考')
     if (executor === 'deepseek')
-      return parseDeepSeekJson(await runDeepSeek(runtime, cwd, taskPrompt, signal, timeout))
+      return normalizeAgentMotion(
+        parseDeepSeekJson(await runDeepSeek(runtime, cwd, taskPrompt, signal, timeout)),
+      )
     if (executor === 'codex') {
       const integrations: unknown = JSON.parse(
         await workflowCommand(
@@ -280,20 +285,22 @@ export async function runAgent(
         },
       )
       if (!existsSync(output)) throw new Error('Codex 未生成结果，请检查 CLI 版本与登录状态')
-      return parseAgentJson(readFileSync(output, 'utf8'))
+      return normalizeAgentMotion(parseAgentJson(readFileSync(output, 'utf8')))
     }
-    return parseAgentJson(
-      await workflowCommand(
-        runtime.claudePath,
-        ['--print', '--output-format', 'json', '--tools', '', '--no-session-persistence'],
-        {
-          cwd,
-          input: taskPrompt,
-          signal,
-          timeout,
-          timeoutMessage: `创作执行超时（${minutes} 分钟），尚未收到完整结果；原版本已保留。可稍后重试或缩小到单镜修改。`,
-          nodePath: runtime.nodePath,
-        },
+    return normalizeAgentMotion(
+      parseAgentJson(
+        await workflowCommand(
+          runtime.claudePath,
+          ['--print', '--output-format', 'json', '--tools', '', '--no-session-persistence'],
+          {
+            cwd,
+            input: taskPrompt,
+            signal,
+            timeout,
+            timeoutMessage: `创作执行超时（${minutes} 分钟），尚未收到完整结果；原版本已保留。可稍后重试或缩小到单镜修改。`,
+            nodePath: runtime.nodePath,
+          },
+        ),
       ),
     )
   } finally {

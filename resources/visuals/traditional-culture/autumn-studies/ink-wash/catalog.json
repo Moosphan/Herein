@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "azalea-red-stone",
+      "name": "杜鹃照石",
+      "category": "color",
+      "theme": "杜鹃 / 胭脂与青石",
+      "note": "分杈承接窄叶与胭脂花，斜枝在青灰石前形成疏密。",
+      "svg": "azalea-red-stone.svg",
+      "png": "azalea-red-stone.png"
+    },
+    {
+      "id": "hibiscus-autumn-pink",
+      "name": "芙蓉秋色",
+      "category": "color",
+      "theme": "木芙蓉 / 粉黛与掌叶",
+      "note": "掌状叶、五瓣花与伸出花心区分形态，保留枝端留白。",
+      "svg": "hibiscus-autumn-pink.svg",
+      "png": "hibiscus-autumn-pink.png"
+    },
+    {
+      "id": "jujube-autumn-fruit",
+      "name": "枣枝垂赭",
+      "category": "color",
+      "theme": "枣实 / 赤赭与叶青",
+      "note": "椭圆枣实沿果梗悬垂，以温润色面表现转折。",
+      "svg": "jujube-autumn-fruit.svg",
+      "png": "jujube-autumn-fruit.png"
+    },
+    {
+      "id": "lychee-cluster-crimson",
+      "name": "荔实垂丹",
+      "category": "color",
+      "theme": "荔枝 / 丹红与粒壳",
+      "note": "成簇荔枝有连贯果梗和局部壳粒，叶面与果簇分出主次。",
+      "svg": "lychee-cluster-crimson.svg",
+      "png": "lychee-cluster-crimson.png"
+    },
+    {
+      "id": "quails-autumn-field",
+      "name": "双鹑秋野",
+      "category": "figures",
+      "theme": "鹌鹑 / 赭羽与草色",
+      "note": "圆短躯体、细腿与背羽斑纹构成鹌鹑意象，脚落于地面。",
+      "svg": "quails-autumn-field.svg",
+      "png": "quails-autumn-field.png"
+    },
+    {
+      "id": "reed-crabs-shallow-water",
+      "name": "芦洲秋蟹",
+      "category": "figures",
+      "theme": "秋蟹 / 铜褐与水青",
+      "note": "横宽甲壳、双螯与四对步足形成层次，芦叶穿插浅水。",
+      "svg": "reed-crabs-shallow-water.svg",
+      "png": "reed-crabs-shallow-water.png"
+    },
+    {
+      "id": "ruan-pearl-inlay",
+      "name": "阮音含翠",
+      "category": "color",
+      "theme": "阮琴 / 木黄与青钿",
+      "note": "圆腹直颈、四弦与弦轴连续连接，纹饰为原创意象。",
+      "svg": "ruan-pearl-inlay.svg",
+      "png": "ruan-pearl-inlay.png"
+    },
+    {
+      "id": "zisha-teapot-slab",
+      "name": "紫砂陈韵",
+      "category": "color",
+      "theme": "紫砂 / 栗褐与茶青",
+      "note": "壶身、盖、流和把以陶色转面表现厚度，壶口与流口真实开合。",
+      "svg": "zisha-teapot-slab.svg",
+      "png": "zisha-teapot-slab.png"
+    },
+    {
+      "id": "incense-seal-tray",
+      "name": "香篆静室",
+      "category": "color",
+      "theme": "香事 / 铜绿与灰白",
+      "note": "香灰实体面与篆香形线有轻重，铜炉置于漆盘，非香法复原。",
+      "svg": "incense-seal-tray.svg",
+      "png": "incense-seal-tray.png"
+    },
+    {
+      "id": "wooden-clogs-moss",
+      "name": "木屐苔阶",
+      "category": "color",
+      "theme": "木屐 / 木赭与编帮",
+      "note": "参考实物形态重画长条木底、前后横齿与拱起编织帮面，部件共用投影，非特定文物复原。",
+      "svg": "wooden-clogs-moss.svg",
+      "png": "wooden-clogs-moss.png"
+    },
+    {
+      "id": "woven-fishing-creel",
+      "name": "竹篓渔闲",
+      "category": "color",
+      "theme": "鱼篓 / 竹黄与苇青",
+      "note": "编织沿鼓腹曲面与口沿，提绳接两侧，盖另置岸边。",
+      "svg": "woven-fishing-creel.svg",
+      "png": "woven-fishing-creel.png"
+    },
+    {
+      "id": "windlass-stone-well",
+      "name": "井台汲古",
+      "category": "ink",
+      "theme": "辘轳 / 木轴与青石",
+      "note": "木架承轴、绳从卷筒入井，井壁为实体，旁置水桶，装饰性构造意象。",
+      "svg": "windlass-stone-well.svg",
+      "png": "windlass-stone-well.png"
+    }
+  ]
+}

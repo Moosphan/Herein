@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "width": 1600,
+  "height": 1000,
+  "background": "transparent",
+  "assets": [
+    {
+      "id": "acorus-creek-stones",
+      "name": "菖蒲清溪",
+      "category": "color",
+      "theme": "溪石 / 苍绿与青灰",
+      "note": "剑叶从根际弯出，肉穗花序接花梗，溪石与根部形成前后遮挡。",
+      "svg": "acorus-creek-stones.svg",
+      "png": "acorus-creek-stones.png"
+    },
+    {
+      "id": "cockscomb-autumn-crimson",
+      "name": "鸡冠映秋",
+      "category": "color",
+      "theme": "花卉 / 绛红与秋绿",
+      "note": "鸡冠花的褶皱肉质花冠有共同花托，枝叶逐级承接，不画成扇形轮廓。",
+      "svg": "cockscomb-autumn-crimson.svg",
+      "png": "cockscomb-autumn-crimson.png"
+    },
+    {
+      "id": "crape-myrtle-pink-cloud",
+      "name": "紫薇绯云",
+      "category": "color",
+      "theme": "花木 / 烟粉与淡赭",
+      "note": "弯干托举疏密不同的花序，皱瓣有体面和花心，保留枝间负形。",
+      "svg": "crape-myrtle-pink-cloud.svg",
+      "png": "crape-myrtle-pink-cloud.png"
+    },
+    {
+      "id": "spotted-dove-elm-branch",
+      "name": "斑鸠榆影",
+      "category": "figures",
+      "theme": "花鸟 / 灰褐与豆绿",
+      "note": "小头、厚胸、长尾与黑白颈斑区分鸟形，两足包扣树枝。",
+      "svg": "spotted-dove-elm-branch.svg",
+      "png": "spotted-dove-elm-branch.png"
+    },
+    {
+      "id": "hedgehog-fallen-chestnuts",
+      "name": "刺猬寻栗",
+      "category": "figures",
+      "theme": "生灵 / 栗褐与草金",
+      "note": "低伏刺猬有尖吻、圆耳和短足，栗实散在地面，不画背刺运果。",
+      "svg": "hedgehog-fallen-chestnuts.svg",
+      "png": "hedgehog-fallen-chestnuts.png"
+    },
+    {
+      "id": "wild-geese-reed-flight",
+      "name": "芦汀鸿雁",
+      "category": "figures",
+      "theme": "飞鸟 / 灰羽与芦赭",
+      "note": "两雁近远错落，长颈向前、近远翼不同角度，苇穗接入草茎。",
+      "svg": "wild-geese-reed-flight.svg",
+      "png": "wild-geese-reed-flight.png"
+    },
+    {
+      "id": "bronze-pan-iron-silk",
+      "name": "铜熨展帛",
+      "category": "color",
+      "theme": "百工 / 古铜与绛帛",
+      "note": "长柄铜熨斗以深盘容炭，柄接盘后壁，器底贴近丝帛，通用器形意象。",
+      "svg": "bronze-pan-iron-silk.svg",
+      "png": "bronze-pan-iron-silk.png"
+    },
+    {
+      "id": "wooden-fish-red-cushion",
+      "name": "木鱼静声",
+      "category": "color",
+      "theme": "木器 / 熟褐与朱绒",
+      "note": "参考天宁寺木鱼的圆钝梨形腹、侧面斜向长音口与前缘浅刻鱼纹，木体连续，软垫承底，槌置侧边。",
+      "svg": "wooden-fish-red-cushion.svg",
+      "png": "wooden-fish-red-cushion.png"
+    },
+    {
+      "id": "suspended-bronze-gong",
+      "name": "铜锣悬响",
+      "category": "color",
+      "theme": "礼乐 / 铜金与深木",
+      "note": "圆锣有收边与中央鼓面，双绳接梁，框架落脚，槌头有包裹层。",
+      "svg": "suspended-bronze-gong.svg",
+      "png": "suspended-bronze-gong.png"
+    },
+    {
+      "id": "windlass-well-bucket",
+      "name": "辘轳井畔",
+      "category": "ink",
+      "theme": "乡居 / 木赭与石青",
+      "note": "双柱托卷筒与轴，曲柄接近端轴头，绳垂入井口，木桶置井沿。",
+      "svg": "windlass-well-bucket.svg",
+      "png": "windlass-well-bucket.png"
+    },
+    {
+      "id": "raised-thatched-granary",
+      "name": "草仓藏粟",
+      "category": "ink",
+      "theme": "乡野 / 谷金与竹木",
+      "note": "架空圆仓、草顶、束箍、短梯和立足形成可读支承，仅作原创粮仓意象。",
+      "svg": "raised-thatched-granary.svg",
+      "png": "raised-thatched-granary.png"
+    },
+    {
+      "id": "grey-tile-screen-wall",
+      "name": "苍瓦照壁",
+      "category": "ink",
+      "theme": "庭院 / 苍瓦与浅石",
+      "note": "影壁、瓦帽、石座共享投影，圆形装饰为原创叶纹，不假托历史纹样。",
+      "svg": "grey-tile-screen-wall.svg",
+      "png": "grey-tile-screen-wall.png"
+    }
+  ]
+}

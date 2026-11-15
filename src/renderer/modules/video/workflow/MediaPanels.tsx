@@ -21,6 +21,7 @@ import {
   stageValue,
   stageUnlocked,
   canReuseAudio,
+  audioJobTrackIds,
   type VideoProject,
   type WorkflowVoice,
   type PublishPayload,
@@ -34,12 +35,14 @@ import {
   type CoverGeneration,
 } from '@shared/video-workflow'
 import { ipcInvoke } from '@/lib/ipc'
+import { productionRevision } from '@shared/video-production'
 import { mediaUrl, workflowCall } from './useWorkflow'
 import { ScenePreview } from './StoryboardEditor'
 import { AudioTrackPlayer } from './AudioTrackPlayer'
 import { PlatformPublishingPanel } from './BilibiliPublishingPanel'
 import { RenderActions } from './RenderActions'
 import { FinalRenderComparison } from './FinalRenderComparison'
+import { RenderFrameInspection } from './RenderFrameInspection'
 import { WorkflowDialog } from './WorkflowDialog'
 import { VideoPreviewButton } from './VideoPreviewButton'
 import { PublicationCoverPanel } from './PublicationCoverPanel'
@@ -57,6 +60,7 @@ export function AudioPanel({
   onVoice,
   onConfigure,
   disabled,
+  submitting,
   onRegenerate,
   onRestoreVersion,
 }: {
@@ -65,7 +69,8 @@ export function AudioPanel({
   onVoice: (voice: WorkflowVoice) => void
   onConfigure: () => void
   disabled: boolean
-  onRegenerate: (fileId: string) => void
+  submitting: boolean
+  onRegenerate: (fileIds: string[], feedback?: string) => Promise<void>
   onRestoreVersion: (revisionId: string) => void
 }) {
   const [profiles, setProfiles] = useState<VoiceProfile[]>([]),
@@ -88,7 +93,12 @@ export function AudioPanel({
   const audio = selectedVersion?.payload as AudioPayload | undefined
   const audioContext = useRenderContext(project, selectedVersion?.id)
   const viewingHistory = versionId !== 'current'
-  const latestJob = project.jobs.find((job) => job.stage === 'audio')
+  const latestJob = project.jobs.find(
+    (job) => job.stage === 'audio' && !audioJobTrackIds(job).length,
+  )
+  const modifyingJobs = project.jobs.filter(
+    (job) => job.state === 'running' && audioJobTrackIds(job).length,
+  )
   const pendingJob =
     latestJob &&
     latestJob.state !== 'succeeded' &&
@@ -107,17 +117,30 @@ export function AudioPanel({
   const total = progress?.total ?? stageValue(project, 'narration')?.scenes.length ?? 0
   const regenerateDisabledReason = viewingHistory
     ? '当前正在查看历史版本，请先切换为当前版本。'
-    : disabled || project.jobs.some((job) => job.state === 'running')
+    : submitting ||
+        project.jobs.some((job) => job.state === 'running' && !audioJobTrackIds(job).length)
       ? '任务执行中，请等待或取消后再重新生成。'
       : !stageUnlocked(project, 'audio') || project.stages.audio?.status === 'stale'
         ? audioContext.ready && canReuseAudio(audioContext.project, project.stages.audio)
           ? '口播内容未变，可先在右侧沿用并审核此版配音，再重新生成单段。'
           : '请先审核前置步骤并生成当前完整配音。'
-        : pendingJob || !audio
+        : visiblePendingJob || !audio
           ? '请先完成完整配音，再重新生成单段。'
           : voice.engine !== 'edge' && !voice.profileId
             ? '请先选择参考音色。'
             : undefined
+  const trackDisabledReason = (id: string) => {
+    const task = modifyingJobs.find((job) => audioJobTrackIds(job).includes(id))
+    return regenerateDisabledReason ?? (task ? `本段已提交修改 · ${task.phase}` : undefined)
+  }
+  const trackTitle = (sceneId: string) =>
+    stageValue(project, 'storyboard')?.scenes.find((scene) => scene.id === sceneId)?.title ??
+    '配音片段'
+  const correctionTargets = tracks.map((track, index) => ({
+    id: track.file.id,
+    label: `${index + 1} · ${trackTitle(track.sceneId)}`,
+    disabledReason: trackDisabledReason(track.file.id),
+  }))
   return (
     <div className="workflow-section">
       <div className="workflow-fields">
@@ -257,6 +280,12 @@ export function AudioPanel({
           {error}
         </p>
       )}
+      {modifyingJobs.length > 0 && !viewingHistory && (
+        <p className="workflow-notice" role="status" data-audio-modification-queue>
+          已提交 {modifyingJobs.reduce((count, job) => count + audioJobTrackIds(job).length, 0)}{' '}
+          段配音修改，按提交顺序生成。可继续为其他片段提交修改意见。
+        </p>
+      )}
       {visiblePendingJob && (
         <div className="workflow-notice" role="status" data-audio-progress>
           {visiblePendingJob.state === 'running' ? (
@@ -305,13 +334,16 @@ export function AudioPanel({
                   projectId={project.id}
                   track={track}
                   index={index}
-                  onRegenerate={() => onRegenerate(track.file.id)}
-                  regenerateDisabledReason={regenerateDisabledReason}
-                  title={
-                    stageValue(project, 'storyboard')?.scenes.find(
-                      (scene) => scene.id === track.sceneId,
-                    )?.title ?? '配音片段'
+                  onRegenerate={(feedback, fileIds) =>
+                    onRegenerate(fileIds ?? [track.file.id], feedback)
                   }
+                  correctionTargets={correctionTargets}
+                  previousFeedback={
+                    project.jobs.find((job) => audioJobTrackIds(job).includes(track.file.id))
+                      ?.operation?.feedback
+                  }
+                  regenerateDisabledReason={trackDisabledReason(track.file.id)}
+                  title={trackTitle(track.sceneId)}
                 />
               ))}
             </div>
@@ -918,15 +950,16 @@ export function RenderPanel({
   const [versionId, setVersionId] = useState('current')
   const [time, setTime] = useState(0)
   const history = useWorkflowHistory(project, final ? 'render' : 'roughcut')
-  const versions = history.items
+  const deliveryHistory = useWorkflowHistory(project, 'render', !final)
+  const currentVersion = final ? project.stages.render : productionRevision(project)
+  const versions = [...history.items, ...deliveryHistory.items].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  )
   const historicalVersion = useWorkflowRevision(
     project,
     versionId === 'current' ? undefined : versionId,
   )
-  const selectedVersion =
-    versionId === 'current'
-      ? project.stages[final ? 'render' : 'roughcut']
-      : historicalVersion.revision
+  const selectedVersion = versionId === 'current' ? currentVersion : historicalVersion.revision
   const render = selectedVersion?.payload as RenderPayload | undefined
   const context = useRenderContext(project, selectedVersion?.id)
   const previewReady = versionId === 'current' || context.ready
@@ -979,24 +1012,26 @@ export function RenderPanel({
       () =>
         workflowCall('generate', {
           projectId: project.id,
-          stage: 'render',
+          stage: final ? 'render' : 'roughcut',
+          ...(!final ? { musicOnly: true } : {}),
           expectedRevision: project.revision,
           requestId: crypto.randomUUID(),
           executor: 'template',
           ...(music ? { music } : {}),
         }),
-      music ? '配乐已应用，新的正式成片等待审核' : '配乐已移除，新的正式成片等待审核',
+      music ? '配乐任务已启动，完成后请审核新视频' : '移除配乐任务已启动，完成后请审核新视频',
     )
   return (
     <div className="workflow-section">
-      {(history.error || historicalVersion.error || context.error) && (
+      {(history.error || deliveryHistory.error || historicalVersion.error || context.error) && (
         <p role="alert" className="workflow-error">
-          {history.error || historicalVersion.error || context.error}
+          {history.error || deliveryHistory.error || historicalVersion.error || context.error}
           <Button
             size="sm"
             variant="ghost"
             onClick={() => {
               void history.retry()
+              void deliveryHistory.retry()
               historicalVersion.retry()
               context.retry()
             }}
@@ -1038,7 +1073,7 @@ export function RenderPanel({
             >
               <strong className="text-body-sm">修改计划已生成，视频尚未更新</strong>
               <p className="workflow-muted">
-                当前预览仍为粗剪 v{selectedVersion?.version}。请确认计划后合成粗剪 v
+                当前预览仍为视频 v{selectedVersion?.version}。请确认计划后制作视频 v
                 {(project.stages.roughcut?.version ?? 0) + 1}，完成后再审核新版。
               </p>
               <div className="workflow-actions">
@@ -1060,15 +1095,13 @@ export function RenderPanel({
               options={[
                 {
                   value: 'current',
-                  label: `当前 v${project.stages[final ? 'render' : 'roughcut']!.version}`,
+                  label: `当前 v${currentVersion!.version}`,
                 },
                 ...versions
-                  .filter(
-                    (revision) => revision.id !== project.stages[final ? 'render' : 'roughcut']?.id,
-                  )
+                  .filter((revision) => revision.id !== currentVersion?.id)
                   .map((revision) => ({
                     value: revision.id,
-                    label: `历史 v${revision.version} · ${new Date(revision.createdAt).toLocaleString('zh-CN')}`,
+                    label: `历史${revision.stage === 'render' ? '交付' : '制作'} v${revision.version} · ${new Date(revision.createdAt).toLocaleString('zh-CN')}`,
                   })),
               ]}
             />
@@ -1083,6 +1116,16 @@ export function RenderPanel({
               加载更早版本
             </Button>
           )}
+          {deliveryHistory.cursor && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={deliveryHistory.loading}
+              onClick={() => void deliveryHistory.more()}
+            >
+              加载更早交付记录
+            </Button>
+          )}
           {previewReady && (
             <>
               <video
@@ -1093,7 +1136,7 @@ export function RenderPanel({
                 preload="metadata"
                 src={mediaUrl(project.id, render.file)}
                 poster={mediaUrl(project.id, render.cover)}
-                aria-label={final ? '最终成片预览' : '粗剪预览'}
+                aria-label={final ? '最终成片预览' : '视频制作预览'}
                 style={
                   render.width < render.height
                     ? { aspectRatio: '16 / 9', objectFit: 'contain' }
@@ -1108,9 +1151,32 @@ export function RenderPanel({
                 </span>
                 <div className="workflow-actions">
                   <span className="workflow-muted">工程 {render.manifestHash.slice(0, 12)}</span>
-                  {final && selectedVersion && (
+                  {!final && selectedVersion && (
+                    <RenderFrameInspection
+                      key={selectedVersion.id}
+                      project={project}
+                      revision={selectedVersion}
+                      sceneId={scene?.id}
+                      onSeek={(time, id) => {
+                        if (player.current) {
+                          player.current.pause()
+                          player.current.currentTime = time
+                        }
+                        setTime(time)
+                        const index = storyboard?.scenes.findIndex((item) => item.id === id) ?? -1
+                        if (index >= 0) setActiveScene(index)
+                      }}
+                      onFeedback={versionId === 'current' ? focusMotionPlan : undefined}
+                    />
+                  )}
+                  {selectedVersion && (
                     <>
-                      <FinalRenderComparison project={context.project} revision={selectedVersion} />
+                      {final && (
+                        <FinalRenderComparison
+                          project={context.project}
+                          revision={selectedVersion}
+                        />
+                      )}
                       <Button
                         type="button"
                         size="icon"
@@ -1133,7 +1199,14 @@ export function RenderPanel({
                   )}
                 </div>
               </div>
-              {final && (
+              {!final && (
+                <p className="workflow-muted">
+                  {render.renderProfile?.quality === 'delivery'
+                    ? '交付质量编码 · 审核通过后使用此文件发布'
+                    : '历史编码 · 保留原文件与质量，审核不会重新编码；重新制作才应用交付质量'}
+                </p>
+              )}
+              {render && (
                 <MusicPanel
                   project={project}
                   render={render}
@@ -1212,15 +1285,17 @@ export function RenderPanel({
         </>
       ) : (
         <div className="workflow-preview grid place-items-center">
-          <span className="workflow-muted">{final ? '等待最终渲染' : '等待合成粗剪'}</span>
+          <span className="workflow-muted">{final ? '等待最终渲染' : '等待制作视频'}</span>
         </div>
       )}
       <p className="workflow-muted">
         {final
           ? '正式成片沿用已审核粗剪的画面、动画、配音和字幕，以交付质量重新编码。点击播放器规格旁的对比图标查看变化；内容修改请先生成并审核新版粗剪。'
-          : render?.motion
-            ? '保留 HTML 元素，用可定位时间的动效合成配音与字幕；修改计划确认后生成新版本。'
-            : '此版本由静态截图合成。可提出元素动效修改，生成新版粗剪后重新审核。'}
+          : render?.renderEngine === 'remotion'
+            ? 'Remotion 自由创作原生画面，新制作按交付质量输出；可抽检实际帧、修改镜头与配乐，审核通过后直接发布。'
+            : render?.motion
+              ? '保留 HTML 元素，用可定位时间的动效合成配音与字幕；修改或配乐生成新待审核版本，审核通过后直接发布。'
+              : '可提出画面修改或管理配乐，审核通过当前视频后直接发布。'}
       </p>
     </div>
   )
@@ -1329,9 +1404,7 @@ export function PublishingPanel({
                 : undefined
             }
             onError={() =>
-              setPreviewError(
-                '视频加载失败，请检查成片文件是否仍然存在，或返回正式成片页重新打开。',
-              )
+              setPreviewError('视频加载失败，请检查成片文件是否仍然存在，或返回视频制作重新打开。')
             }
           />
         )}
@@ -1344,21 +1417,21 @@ export function PublishingPanel({
       <p className="workflow-muted">
         两平台使用同一份成片，保持原始画幅。审核发布信息后，均可一键投稿，也可导出发布包后上传并回填链接。
       </p>
-      {platform === 'bilibili' && (
-        <PublicationCoverPanel
-          project={project}
-          value={value.platforms.bilibili}
-          disabled={disabled}
-          canGenerate={canGenerate}
-          generating={coverGenerating}
-          onGenerate={onCoverGenerate}
-          onChange={(cover) =>
-            onChange({
-              platforms: { ...value.platforms, bilibili: { ...value.platforms.bilibili, cover } },
-            })
-          }
-        />
-      )}
+      <PublicationCoverPanel
+        key={platform}
+        project={project}
+        platform={platform}
+        value={value.platforms[platform]}
+        disabled={disabled}
+        canGenerate={canGenerate}
+        generating={coverGenerating}
+        onGenerate={onCoverGenerate}
+        onChange={(cover) =>
+          onChange({
+            platforms: { ...value.platforms, [platform]: { ...value.platforms[platform], cover } },
+          })
+        }
+      />
       <div className="workflow-section">
         {[platform].map((platform) => {
           const metadata = value.platforms[platform],

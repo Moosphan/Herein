@@ -1,0 +1,103 @@
+{
+  "renderer": "Electron 33.4.11 / Chromium 130.0.6723.191",
+  "exported": [
+    {
+      "id": "hosta-white-trumpets",
+      "png": "hosta-white-trumpets.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 192815,
+      "transparent": 1406075
+    },
+    {
+      "id": "red-knotweed-riverside",
+      "png": "red-knotweed-riverside.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 74591,
+      "transparent": 1524067
+    },
+    {
+      "id": "purple-hyacinth-bean-vine",
+      "png": "purple-hyacinth-bean-vine.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 134598,
+      "transparent": 1464306
+    },
+    {
+      "id": "oriole-golden-perch",
+      "png": "oriole-golden-perch.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 93152,
+      "transparent": 1506611
+    },
+    {
+      "id": "chafer-on-broad-leaf",
+      "png": "chafer-on-broad-leaf.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 117133,
+      "transparent": 1482367
+    },
+    {
+      "id": "clay-xun-five-holes",
+      "png": "clay-xun-five-holes.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 232433,
+      "transparent": 1367200
+    },
+    {
+      "id": "bronze-yi-basin",
+      "png": "bronze-yi-basin.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 202679,
+      "transparent": 1397294
+    },
+    {
+      "id": "jade-huang-red-cords",
+      "png": "jade-huang-red-cords.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 131140,
+      "transparent": 1468860
+    },
+    {
+      "id": "suspended-stone-chimes",
+      "png": "suspended-stone-chimes.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 136487,
+      "transparent": 1463440
+    },
+    {
+      "id": "woven-winnowing-tray",
+      "png": "woven-winnowing-tray.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 244488,
+      "transparent": 1355307
+    },
+    {
+      "id": "lacquer-lamp-stand",
+      "png": "lacquer-lamp-stand.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 127627,
+      "transparent": 1472299
+    },
+    {
+      "id": "rammed-earth-pass",
+      "png": "rammed-earth-pass.png",
+      "width": 1600,
+      "height": 1000,
+      "painted": 446634,
+      "transparent": 1153067
+    }
+  ],
+  "svgReferences": true,
+  "visualReview": "manual review required"
+}

@@ -10,6 +10,7 @@ export function WorkflowDialog({
   children,
   footer,
   returnFocus,
+  onCloseAutoFocus,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -18,6 +19,7 @@ export function WorkflowDialog({
   children: ReactNode
   footer?: ReactNode
   returnFocus?: RefObject<HTMLButtonElement>
+  onCloseAutoFocus?: (event: Event) => void
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -26,10 +28,12 @@ export function WorkflowDialog({
         <Dialog.Content
           className="workflow-dialog voiceover-dialog"
           onCloseAutoFocus={
-            returnFocus
+            returnFocus || onCloseAutoFocus
               ? (event) => {
+                  onCloseAutoFocus?.(event)
+                  if (event.defaultPrevented) return
                   event.preventDefault()
-                  returnFocus.current?.focus()
+                  returnFocus?.current?.focus()
                 }
               : undefined
           }

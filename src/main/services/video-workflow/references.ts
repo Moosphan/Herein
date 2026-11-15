@@ -72,7 +72,7 @@ export async function snapshotReference(
         headers: {
           Host: url.host,
           Accept: 'text/html,text/plain',
-          'User-Agent': 'MyDashboard-Reference/1.0',
+          'User-Agent': 'Herein-Reference/1.0',
         },
         signal,
         timeout: 15000,

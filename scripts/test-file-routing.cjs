@@ -62,6 +62,9 @@ app.whenReady().then(async () => {
     }
     assert.ok(window)
     await home()
+    assert.equal(app.getName(), 'Herein')
+    assert.equal(await evaluate('document.title'), 'Herein')
+    assert.equal(await evaluate('document.querySelector("aside h1").textContent.trim()'), 'Herein')
     assert.equal(await evaluate('location.hash'), '#/dashboard')
     assert.equal(await evaluate('location.pathname.endsWith("/index.html")'), true)
     console.log('PASS file cold start renders dashboard without navigation or HTTP server')
@@ -95,7 +98,7 @@ app.whenReady().then(async () => {
     await evaluate('location.hash="/unknown-synthetic-route"')
     await home()
     assert.equal(await evaluate('location.hash'), '#/dashboard')
-    assert.equal(await evaluate('document.querySelector(\'img[alt="MyDashboard logo"]\').naturalWidth>0'), true)
+    assert.equal(await evaluate('document.querySelector(\'img[alt="Herein logo"]\').naturalWidth>0'), true)
     assert.ok(await evaluate('document.styleSheets.length>0 && getComputedStyle(document.querySelector("aside")).display==="flex"'))
     assert.ok(await evaluate('document.fonts.load(\'20px "Material Symbols Outlined"\').then(fonts=>fonts.length>0)'))
     await click('Video')

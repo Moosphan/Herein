@@ -1,6 +1,6 @@
 # GitHub 任务跟踪
 
-用户约定：2026-11-09。较大改版与需要持续跟进的问题使用 `to-tickets` 拆分并在 GitHub 跟踪。仓库通过当前 checkout 的 origin 核实，当前为 `Moosphan/MyDashboard`；使用 `gh` 操作。
+用户约定：2026-11-09。较大改版与需要持续跟进的问题使用 `to-tickets` 拆分并在 GitHub 跟踪。仓库通过当前 checkout 的 origin 核实，当前为 `Moosphan/Herein`；使用 `gh` 操作。
 
 ## 建立任务
 

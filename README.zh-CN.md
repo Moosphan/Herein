@@ -126,6 +126,8 @@ Herein 当前是一个模块化 Electron 应用，内置 7 个功能模块：
 
 应用数据存储在 Electron 的 `userData` 目录下。
 
+macOS 新安装默认使用 `~/Library/Application Support/Herein`。检测到 `my-dashboard` 或 `MyDashboard` 下的既有数据库时，自动沿用该数据目录。可选工具安装在当前数据目录的 `tools` 子目录中。
+
 - SQLite 数据库：`<userData>/database/dashboard.db`
 - 应用初始化的文件目录：
   - `articles`
@@ -144,7 +146,7 @@ SQLite 初始化时会启用 WAL 模式和外键约束。
 
 ### 下载内部安装包
 
-使用具有仓库写权限的 GitHub 账号打开 [Releases](https://github.com/Moosphan/MyDashboard/releases)，进入对应构建的 **MyDashboard CI #…** 草稿。每次主线推送或手动运行主线构建，都会创建草稿，将构建成功的 macOS、Windows、Linux 安装包及各平台 SHA-256 校验文件上传到草稿。Mac 包含 Apple Silicon（`arm64`）和 Intel（`x64`）的 DMG/ZIP。CI 不会将草稿正式发布；部分平台失败时，草稿可能只有部分安装包，请查看草稿关联的构建状态。
+使用具有仓库写权限的 GitHub 账号打开 [Releases](https://github.com/Moosphan/Herein/releases)，进入对应构建的 **Herein CI #…** 草稿。每次主线推送或手动运行主线构建，都会创建草稿，将构建成功的 macOS、Windows、Linux 安装包及各平台 SHA-256 校验文件上传到草稿。Mac 包含 Apple Silicon（`arm64`）和 Intel（`x64`）的 DMG/ZIP。CI 不会将草稿正式发布；部分平台失败时，草稿可能只有部分安装包，请查看草稿关联的构建状态。
 
 草稿及其安装包仅对有仓库写权限的协作者可见；源码和 Actions 日志仍公开。后续安装包不再上传 Actions Artifacts；此前已上传的产物保持原可见性，直到过期或删除。这些 CI 安装包未签名，Mac 包未经 Apple 公证。
 
@@ -156,8 +158,8 @@ SQLite 初始化时会启用 WAL 模式和外键约束。
 ### 安装
 
 ```bash
-git clone https://github.com/Moosphan/MyDashboard.git
-cd MyDashboard
+git clone https://github.com/Moosphan/Herein.git
+cd Herein
 pnpm install
 ```
 

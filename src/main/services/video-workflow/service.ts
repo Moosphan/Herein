@@ -1389,8 +1389,8 @@ export class VideoWorkflowService {
       writeFileSync(
         join(directory, 'README.txt'),
         safe.renderEngine === 'remotion'
-          ? '该目录是可编辑 Remotion 工程副本，不会修改 MyDashboard 已审核版本。在此目录运行 npm install，再运行 npm run studio 编辑预览或 npm run render 输出视频。原生工程视觉入口为 visuals.tsx，逐镜源码为 scene-N.tsx；历史工程使用 public/index.html。媒体位于 public，时间轴配置位于 composition.json，配音与字幕由 remotion.tsx 管理。使用官方 Remotion 4.0.541，适用条件参见 https://www.remotion.dev/license 。工程修改需要重新审核，当前不自动回导。'
-          : '该目录是可编辑工程副本，不会修改 MyDashboard 已审核版本。使用已配置的 HyperFrames 0.8.181 运行 preview --background 打开 Studio；编辑后可在 Studio 导出或通过 render 导出。工程修改需要重新审核，当前不自动回导。',
+          ? '该目录是可编辑 Remotion 工程副本，不会修改 Herein 已审核版本。在此目录运行 npm install，再运行 npm run studio 编辑预览或 npm run render 输出视频。原生工程视觉入口为 visuals.tsx，逐镜源码为 scene-N.tsx；历史工程使用 public/index.html。媒体位于 public，时间轴配置位于 composition.json，配音与字幕由 remotion.tsx 管理。使用官方 Remotion 4.0.541，适用条件参见 https://www.remotion.dev/license 。工程修改需要重新审核，当前不自动回导。'
+          : '该目录是可编辑工程副本，不会修改 Herein 已审核版本。使用已配置的 HyperFrames 0.8.181 运行 preview --background 打开 Studio；编辑后可在 Studio 导出或通过 render 导出。工程修改需要重新审核，当前不自动回导。',
       )
       return directory
     } catch (error) {
@@ -1423,7 +1423,7 @@ export class VideoWorkflowService {
               input.settings ?? {},
               '',
               input.sceneId,
-            )) + '\n保存为 result.json，然后回到 MyDashboard 导入结果。',
+            )) + '\n保存为 result.json，然后回到 Herein 导入结果。',
     )
     if (publication)
       writeFileSync(
@@ -1496,7 +1496,7 @@ export class VideoWorkflowService {
             : metadata.cover
               ? `\ncover.png 为所选视频帧，保留原画幅 ${metadata.cover.width}×${metadata.cover.height}。\n`
               : '') +
-          '上传成功后，将发布链接回填到 MyDashboard。导出发布包不代表平台发布成功。',
+          '上传成功后，将发布链接回填到 Herein。导出发布包不代表平台发布成功。',
       )
       this.repository.publication(
         projectId,

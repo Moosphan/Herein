@@ -4,7 +4,7 @@ import { getDatabase } from '../database/connection'
 import { RSSFeedRepository, RSSArticleRepository } from '../database/repositories/rss-repository'
 import { sendDedupedNotification } from '../services/notification-service'
 
-const rssParser = new Parser({ timeout: 10000, headers: { 'User-Agent': 'MyDashboard/1.0' } })
+const rssParser = new Parser({ timeout: 10000, headers: { 'User-Agent': 'Herein/1.0' } })
 
 async function storeArticles(feedId: number, parsed: Awaited<ReturnType<typeof rssParser.parseString>>): Promise<number> {
   const db = getDatabase()
@@ -83,7 +83,7 @@ export function registerRssIpcHandlers(): void {
       // Fetch once, reuse for both title and articles
       try {
         const res = await fetch(data.url, {
-          headers: { 'User-Agent': 'MyDashboard/1.0' },
+          headers: { 'User-Agent': 'Herein/1.0' },
           signal: AbortSignal.timeout(10000),
         })
         const xml = await res.text()
@@ -95,7 +95,7 @@ export function registerRssIpcHandlers(): void {
       if (!title) {
         try {
           const res = await fetch(data.url, {
-            headers: { 'User-Agent': 'MyDashboard/1.0', Accept: 'text/html,*/*' },
+            headers: { 'User-Agent': 'Herein/1.0', Accept: 'text/html,*/*' },
             signal: AbortSignal.timeout(10000),
           })
           const text = await res.text()
@@ -130,7 +130,7 @@ export function registerRssIpcHandlers(): void {
       for (const feed of feeds) {
         try {
           const res = await fetch(feed.url, {
-            headers: { 'User-Agent': 'MyDashboard/1.0' },
+            headers: { 'User-Agent': 'Herein/1.0' },
             signal: AbortSignal.timeout(10000),
           })
           const xml = await res.text()

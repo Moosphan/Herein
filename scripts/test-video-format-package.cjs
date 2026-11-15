@@ -9,14 +9,14 @@ const { setTimeout: delay } = require('node:timers/promises')
 
 async function main() {
   const application = process.argv[2]
-  assert.ok(application, 'Pass the absolute MyDashboard.app directory')
+  assert.ok(application, 'Pass the absolute Herein.app directory')
   const root = mkdtempSync(join(tmpdir(), 'video-format-package-'))
   const server = createServer()
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const port = server.address().port
   await new Promise((resolve) => server.close(resolve))
   const child = spawn(
-    join(application, 'Contents/MacOS/MyDashboard'),
+    join(application, 'Contents/MacOS/Herein'),
     [`--remote-debugging-port=${port}`],
     { env: { ...process.env, MYDASHBOARD_USER_DATA: root }, stdio: ['ignore', 'pipe', 'pipe'] },
   )

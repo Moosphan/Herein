@@ -1,7 +1,7 @@
 {
-  "name": "my-dashboard",
+  "name": "herein",
   "version": "0.1.0",
-  "description": "MyDashboard - Local-first personal productivity workspace for macOS",
+  "description": "Herein - Local-first personal productivity workspace for macOS",
   "main": "./out/main/index.js",
   "author": "Dorck",
   "license": "Apache-2.0",

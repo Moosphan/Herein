@@ -53,7 +53,7 @@ export function prepareDraftRelease(env, run = gh) {
     tag_name: source.tag,
     target_commitish: source.commit,
     draft: true,
-    name: `MyDashboard CI #${env.GITHUB_RUN_NUMBER} (${source.commit.slice(0, 7)})`,
+    name: `Herein CI #${env.GITHUB_RUN_NUMBER} (${source.commit.slice(0, 7)})`,
     body: `Internal CI build. This release must remain a draft.\n\nCommit: ${source.commit}\nBuild: https://github.com/${source.repo}/actions/runs/${env.GITHUB_RUN_ID}\n\nInstallers are unsigned. macOS builds are not notarized by Apple. Each platform includes SHA-256 checksums.`,
   }
   return guard(
@@ -74,13 +74,13 @@ export function uploadDraftAssets(env, directory, platform, run = gh) {
   guard(JSON.parse(run(['api', endpoint])), source)
   const patterns = {
     macos: [
-      /^MyDashboard-[\d.]+-arm64\.dmg$/,
-      /^MyDashboard-[\d.]+\.dmg$/,
-      /^MyDashboard-[\d.]+-arm64-mac\.zip$/,
-      /^MyDashboard-[\d.]+-mac\.zip$/,
+      /^Herein-[\d.]+-arm64\.dmg$/,
+      /^Herein-[\d.]+\.dmg$/,
+      /^Herein-[\d.]+-arm64-mac\.zip$/,
+      /^Herein-[\d.]+-mac\.zip$/,
     ],
-    windows: [/^MyDashboard.*\.exe$/, /^MyDashboard.*-win\.zip$/],
-    linux: [/^MyDashboard.*\.AppImage$/, /^my-dashboard.*\.deb$/],
+    windows: [/^Herein.*\.exe$/, /^Herein.*-win\.zip$/],
+    linux: [/^Herein.*\.AppImage$/, /^herein.*\.deb$/],
   }[platform]
   if (!patterns) throw new Error('Invalid platform')
   const names = readdirSync(directory)

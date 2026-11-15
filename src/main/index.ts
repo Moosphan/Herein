@@ -1,7 +1,7 @@
 import { stopCodexSessionUsage } from './services/codex-session-usage-service'
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join, resolve } from 'path'
-import { appendFileSync, mkdirSync } from 'fs'
+import { appendFileSync, existsSync, mkdirSync } from 'fs'
 import { registerAllIpcHandlers } from './ipc'
 import { initFileStorage, registerFileIpcHandlers } from './services/file-service'
 import { registerSettingsIpcHandlers } from './services/settings-service'
@@ -48,10 +48,17 @@ import { seedSocialData } from './database/seeds/social-seeds'
 import { startDailyRuntimeControl } from './services/daily-runtime-control'
 
 const isDev = !app.isPackaged
+app.setName('Herein')
+// Reuse existing profiles so a product rename retains local work and sessions.
+const legacyUserData = ['my-dashboard', 'MyDashboard']
+  .map(name => join(app.getPath('appData'), name))
+  .find(directory => existsSync(join(directory, 'database', 'dashboard.db')))
 if (process.env.MYDASHBOARD_USER_DATA) {
   const isolatedData = resolve(process.env.MYDASHBOARD_USER_DATA)
   mkdirSync(isolatedData, { recursive: true })
   app.setPath('userData', isolatedData)
+} else if (legacyUserData) {
+  app.setPath('userData', legacyUserData)
 }
 const primaryInstance = app.requestSingleInstanceLock()
 if (!primaryInstance) app.exit(0)

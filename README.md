@@ -111,7 +111,7 @@ Use **视频制作 → 播放器规格行 → 实际画面抽检** to inspect th
 Install the optional Remotion CLI separately from Electron. On macOS:
 
 ```sh
-npm install --prefix "$HOME/Library/Application Support/my-dashboard/tools/remotion" --save-exact @remotion/cli@4.0.541 react@18.3.1 react-dom@18.3.1
+npm install --prefix "$HOME/Library/Application Support/Herein/tools/remotion" --save-exact @remotion/cli@4.0.541 react@18.3.1 react-dom@18.3.1
 ```
 
 This location is detected automatically. Alternatively, configure an existing `@remotion/cli/remotion-cli.js` in **执行环境**, together with Node.js, FFmpeg and FFprobe. Chrome / Chromium can be selected explicitly; leaving the browser field empty lets Remotion obtain its own browser on first use. Remotion does not require HyperFrames to be installed. The CLI runs with one rendering worker to limit background memory pressure. Remotion has its own [license](https://github.com/remotion-dev/remotion/blob/main/LICENSE.md); it is not covered by Herein's license.
@@ -199,6 +199,8 @@ complete statement of already-shipped runtime plugin behavior.
 
 The app stores data locally under Electron's `userData` directory.
 
+New macOS installations use `~/Library/Application Support/Herein`. Existing profiles with a database under `my-dashboard` or `MyDashboard` are reused automatically. Install optional tools under the active profile's `tools` directory.
+
 - SQLite database: `<userData>/database/dashboard.db`
 - File storage directories initialized by the app:
   - `articles`
@@ -217,7 +219,7 @@ SQLite is initialized with WAL mode and foreign-key support enabled.
 
 ### Download internal installers
 
-Open [Releases](https://github.com/Moosphan/MyDashboard/releases) while signed in with repository write access, then open the draft named **MyDashboard CI #…** for the desired build. Every main-branch push or manual main build creates a draft and uploads successful macOS, Windows and Linux installer packages with platform SHA-256 checksums. macOS includes Apple Silicon (`arm64`) and Intel (`x64`) DMG/ZIP files. CI never publishes the draft; failed platforms may leave a partial draft, so check the linked build status.
+Open [Releases](https://github.com/Moosphan/Herein/releases) while signed in with repository write access, then open the draft named **Herein CI #…** for the desired build. Every main-branch push or manual main build creates a draft and uploads successful macOS, Windows and Linux installer packages with platform SHA-256 checksums. macOS includes Apple Silicon (`arm64`) and Intel (`x64`) DMG/ZIP files. CI never publishes the draft; failed platforms may leave a partial draft, so check the linked build status.
 
 Draft releases and their files are visible only to collaborators with write access. Source code and Actions logs remain public; future installers are not uploaded to Actions Artifacts. Previously uploaded artifacts retain their original visibility until they expire or are deleted. These CI builds are unsigned; macOS packages are not notarized by Apple.
 
@@ -229,8 +231,8 @@ Draft releases and their files are visible only to collaborators with write acce
 ### Install
 
 ```bash
-git clone https://github.com/Moosphan/MyDashboard.git
-cd MyDashboard
+git clone https://github.com/Moosphan/Herein.git
+cd Herein
 pnpm install
 ```
 

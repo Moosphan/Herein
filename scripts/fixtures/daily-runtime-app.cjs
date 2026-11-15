@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, session } = require('electron')
+const assert = require('node:assert/strict')
 const { writeFileSync } = require('node:fs')
 const { resolve } = require('node:path')
 const { setTimeout: delay } = require('node:timers/promises')
@@ -26,6 +27,14 @@ app.whenReady().then(async () => {
         return (location.protocol==='file:' && location.hash==='#/dashboard') || (location.protocol==='http:' && location.pathname==='/dashboard') ? { restored } : false
       })()`)
       if (ready) {
+        assert.equal(app.getName(), 'Herein')
+        assert.equal(app.getPath('userData'), resolve(process.env.MYDASHBOARD_USER_DATA))
+        const identity = await window.webContents.executeJavaScript(`({
+          title: document.title,
+          heading: document.querySelector('aside h1')?.textContent.trim(),
+          logo: document.querySelector('aside img')?.alt
+        })`)
+        assert.deepEqual(identity, { title: 'Herein', heading: 'Herein', logo: 'Herein logo' })
         if (process.env.DAILY_BENCHMARK) {
           const startupMs = performance.now() - started
           const go = async label => {

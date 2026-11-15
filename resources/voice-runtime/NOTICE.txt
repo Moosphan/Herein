@@ -1,4 +1,4 @@
-MyDashboard voice runtime resource inventory
+Herein voice runtime resource inventory
 
 Distributed resources: worker.py, adapters/voxcpm2.py, adapters/qwen3.py,
 transcribe.py, denoise.py, requirements-mlx.txt, requirements-denoiser.txt

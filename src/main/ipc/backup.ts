@@ -36,7 +36,7 @@ export function registerBackupIpcHandlers(): void {
   ipcMain.handle('backup:restore', async () => {
     const win = getFocusedWindow()
     const result = await dialog.showOpenDialog(win, {
-      title: 'Choose MyDashboard backup',
+      title: 'Choose Herein backup',
       properties: ['openDirectory'],
     })
     if (result.canceled || !result.filePaths[0]) return { success: false, error: 'Canceled' }

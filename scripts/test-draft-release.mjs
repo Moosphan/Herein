@@ -25,10 +25,10 @@ const release = {
 function fixture() {
   const directory = mkdtempSync(join(tmpdir(), 'draft-release-'))
   for (const name of [
-    'MyDashboard-0.1.0-arm64.dmg',
-    'MyDashboard-0.1.0.dmg',
-    'MyDashboard-0.1.0-arm64-mac.zip',
-    'MyDashboard-0.1.0-mac.zip',
+    'Herein-0.1.0-arm64.dmg',
+    'Herein-0.1.0.dmg',
+    'Herein-0.1.0-arm64-mac.zip',
+    'Herein-0.1.0-mac.zip',
   ])
     writeFileSync(join(directory, name), 'installer ' + name)
   return { directory, close: () => rmSync(directory, { recursive: true, force: true }) }
@@ -41,6 +41,7 @@ test('creates one draft for the exact CI commit and reuses it on reruns', () => 
     if (args.includes('POST')) {
       const body = JSON.parse(input)
       assert.equal(body.draft, true)
+      assert.equal(body.name, `Herein CI #65 (${'a'.repeat(7)})`)
       assert.equal(body.target_commitish, environment.GITHUB_SHA)
       assert.equal(body.tag_name, release.tag_name)
       creations++
@@ -95,7 +96,7 @@ test('never modifies a published release or a release targeting another commit',
 test('uploads only mac installers and platform checksum to the guarded draft', () => {
   const f = fixture()
   writeFileSync(join(f.directory, 'credentials.env'), 'PRIVATE')
-  writeFileSync(join(f.directory, 'MyDashboard-win.zip'), 'windows installer')
+  writeFileSync(join(f.directory, 'Herein-win.zip'), 'windows installer')
   const calls = []
   try {
     const result = uploadDraftAssets(
@@ -115,7 +116,7 @@ test('uploads only mac installers and platform checksum to the guarded draft', (
     assert.ok(!upload.some((arg) => arg.includes('credentials') || arg.includes('-win.zip')))
     assert.match(
       readFileSync(join(f.directory, 'SHA256SUMS-macos.txt'), 'utf8'),
-      /^[a-f0-9]{64}  MyDashboard-/,
+      /^[a-f0-9]{64}  Herein-/,
     )
     assert.equal(calls.filter((args) => args[0] === 'api').length, 2)
   } finally {
@@ -127,9 +128,9 @@ test('missing architectures and symlink installers cannot be uploaded', () => {
   for (const mode of ['missing', 'symlink']) {
     const f = fixture()
     try {
-      const path = join(f.directory, 'MyDashboard-0.1.0-arm64.dmg')
+      const path = join(f.directory, 'Herein-0.1.0-arm64.dmg')
       rmSync(path)
-      if (mode === 'symlink') symlinkSync(join(f.directory, 'MyDashboard-0.1.0.dmg'), path)
+      if (mode === 'symlink') symlinkSync(join(f.directory, 'Herein-0.1.0.dmg'), path)
       assert.throws(
         () =>
           uploadDraftAssets(
@@ -151,8 +152,8 @@ test('missing architectures and symlink installers cannot be uploaded', () => {
 
 test('matches actual Windows and Linux builder names without mixing platform assets', () => {
   for (const [platform, names] of [
-    ['windows', ['MyDashboard Setup 0.1.0.exe', 'MyDashboard-0.1.0-win.zip']],
-    ['linux', ['MyDashboard-0.1.0.AppImage', 'my-dashboard_0.1.0_amd64.deb']],
+    ['windows', ['Herein Setup 0.1.0.exe', 'Herein-0.1.0-win.zip']],
+    ['linux', ['Herein-0.1.0.AppImage', 'herein_0.1.0_amd64.deb']],
   ]) {
     const f = fixture()
     try {

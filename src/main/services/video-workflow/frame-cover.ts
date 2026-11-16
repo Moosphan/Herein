@@ -222,7 +222,13 @@ export class FrameCoverService {
           ? await output('landscape.png', 1600, 900)
           : readFileSync(original)
       const feed = input.platform === 'bilibili' ? await output('feed.png', 1600, 1200) : landscape
-      if ([landscape, feed].some((bytes) => !bytes.length || bytes.length > 4 * 1024 * 1024))
+      const portrait =
+        input.platform === 'bilibili' ? await output('portrait.png', 1080, 1920) : undefined
+      if (
+        [landscape, feed, portrait].some(
+          (bytes) => bytes && (!bytes.length || bytes.length > 4 * 1024 * 1024),
+        )
+      )
         throw new Error('该帧 PNG 超出 4 MiB 限制，请选择细节较少的画面')
       await this.files.verify(input.projectId, render.file)
       this.source(input.projectId, input.renderId, input.expected)
@@ -230,11 +236,15 @@ export class FrameCoverService {
       const file = await this.files.write(input.projectId, landscape, '.png')
       const feedFile =
         input.platform === 'bilibili' ? await this.files.write(input.projectId, feed, '.png') : file
+      const portraitFile = portrait
+        ? await this.files.write(input.projectId, portrait, '.png')
+        : undefined
       signal.throwIfAborted()
       this.source(input.projectId, input.renderId, input.expected)
       return validatePublicationCover({
         file,
         feedFile,
+        ...(portraitFile ? { portraitFile } : {}),
         sourceRenderId: input.renderId,
         method: 'frame',
         platform: input.platform,

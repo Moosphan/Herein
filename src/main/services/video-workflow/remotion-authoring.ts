@@ -21,6 +21,7 @@ import {
 } from './remotion-native'
 import { runNativeRepair, type NativeAttemptOptions } from './remotion-repair'
 import { validateNativeMaterials, type NativeMaterial } from '../../../shared/video-materials'
+import { NATIVE_CAPTIONS_FILE, NATIVE_CAPTIONS_SOURCE } from './remotion-captions'
 
 export async function authorNativeComposition(input: {
   project: VideoProject
@@ -129,6 +130,7 @@ export async function authorNativeComposition(input: {
     await files.verify(project.id, stageValue(project, 'audio')!.file),
     join(cwd, 'narration.wav'),
   )
+  writeFileSync(join(cwd, NATIVE_CAPTIONS_FILE), NATIVE_CAPTIONS_SOURCE)
   phase('Agent 创作原生 Remotion 场景与镜头编排')
   const { sources, report } = await runNativeRepair({
     prompt: nativeCreationPrompt(
@@ -168,6 +170,7 @@ export async function authorNativeComposition(input: {
     ...names,
     ...sources.files.map((file) => file.name),
     'remotion.tsx',
+    NATIVE_CAPTIONS_FILE,
     'composition.json',
     'package.json',
     'narration.wav',

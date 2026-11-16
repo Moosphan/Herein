@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -13,6 +13,15 @@ async function seed() {
   mkdirSync(join(root, 'database'), { recursive: true })
   const db = new Database(join(root, 'database/dashboard.db'))
   runMigrations(db)
+  mkdirSync(join(root, 'dist/cli'), { recursive: true })
+  mkdirSync(join(root, 'dist/platforms/bilibili/web'), { recursive: true })
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module' }))
+  copyFileSync(join(import.meta.dirname, 'fixtures/catbus.mjs'), join(root, 'dist/cli/main.mjs'))
+  for (const name of ['api', 'commands'])
+    copyFileSync(
+      join(import.meta.dirname, `fixtures/bilibili-update-${name}.mjs`),
+      join(root, `dist/platforms/bilibili/web/${name}.js`),
+    )
   const repository = new VideoWorkflowRepository(db)
   const files = new WorkflowFiles(root, repository)
   let project = repository.create('B 站自动发布验证')
@@ -152,7 +161,7 @@ async function seed() {
     join(root, 'config/video-workflow.json'),
     JSON.stringify({
       nodePath: process.argv[3],
-      catbusPath: join(import.meta.dirname, 'fixtures/catbus.mjs'),
+      catbusPath: join(root, 'dist/cli/main.mjs'),
       codexPath: coverAgent,
       bunPath: process.argv[3],
       image2Path: join(import.meta.dirname, 'fixtures/cover-agent.mjs'),

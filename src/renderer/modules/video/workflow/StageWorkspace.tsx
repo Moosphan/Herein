@@ -104,6 +104,21 @@ export function StageWorkspace({
     stage === 'roughcut'
       ? (revision?.payload as StagePayloads['roughcut'] | undefined)
       : stageValue(project, stage === 'render' ? 'render' : 'roughcut')
+  const reviewAudio = rendered?.sourceAudio
+    ? project.history.find((item) => item.stage === 'audio' && item.id === rendered.sourceAudio)
+    : undefined
+  const materials = nativeMaterialDraft(project.id)
+  const audioRefresh =
+    stage === 'roughcut' &&
+    renderEngine === 'remotion' &&
+    rendered?.renderEngine === 'remotion' &&
+    rendered.compositionNames.includes('visuals.tsx') &&
+    project.stages.audio?.status === 'approved' &&
+    rendered.sourceAudio !== project.stages.audio.id &&
+    rendered.sourceStoryboard === project.stages.storyboard?.id &&
+    rendered.sourceNarration === project.stages.narration?.id &&
+    (materials === undefined ||
+      JSON.stringify(materials) === JSON.stringify(rendered.nativeMaterials ?? []))
   const reviewRenderEngine = rendered
     ? (rendered.renderEngine ?? 'hyperframes')
     : stage === 'render'
@@ -182,8 +197,9 @@ export function StageWorkspace({
     ...(stage === 'roughcut'
       ? {
           renderEngine,
-          ...(renderEngine === 'remotion' && nativeMaterialDraft(project.id) !== undefined
-            ? { nativeMaterials: nativeMaterialDraft(project.id) }
+          ...(audioRefresh ? { audioOnly: true } : {}),
+          ...(renderEngine === 'remotion' && !audioRefresh && materials !== undefined
+            ? { nativeMaterials: materials }
             : {}),
         }
       : {}),
@@ -892,9 +908,15 @@ export function StageWorkspace({
               <div className="workflow-inspector-item">
                 <span>采用的输入</span>
                 <strong>
-                  {previousStage
-                    ? `${VIDEO_STAGE_LABELS[previousStage]} v${project.stages[previousStage]?.version ?? '—'}`
-                    : '用户想法与参考资料'}
+                  {['roughcut', 'render'].includes(stage) && rendered
+                    ? reviewAudio
+                      ? `分段配音 v${reviewAudio.version}`
+                      : '分段配音（来源未记录）'
+                    : stage === 'publish' && revision?.status === 'stale'
+                      ? `当前成片 v${project.stages.render?.version ?? '—'} · 待保存发布新版本`
+                      : previousStage
+                        ? `${VIDEO_STAGE_LABELS[previousStage]} v${project.stages[previousStage]?.version ?? '—'}`
+                        : '用户想法与参考资料'}
                 </strong>
               </div>
               <div className="workflow-inspector-item">
@@ -1027,9 +1049,11 @@ export function StageWorkspace({
                     disabled={Boolean(running) || pendingMotionPlan}
                     onClick={() => generate()}
                   >
-                    {stage === 'render'
-                      ? '渲染最终成片'
-                      : `制作 ${VIDEO_RENDER_ENGINES[renderEngine]} 视频`}
+                    {audioRefresh
+                      ? `应用当前配音 v${project.stages.audio!.version}`
+                      : stage === 'render'
+                        ? '渲染最终成片'
+                        : `制作 ${VIDEO_RENDER_ENGINES[renderEngine]} 视频`}
                   </Button>
                   {stage === 'roughcut' && pendingMotionPlan && (
                     <p className="workflow-muted" role="status">
@@ -1057,11 +1081,13 @@ export function StageWorkspace({
           </p>
         </div>
         <div className="workflow-actions">
-          {editable && draft.dirty && (
+          {editable && (draft.dirty || (stage === 'publish' && revision?.status === 'stale')) && (
             <>
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => draft.reset()}>
-                放弃未保存修改
-              </Button>
+              {draft.dirty && (
+                <Button size="sm" variant="ghost" disabled={busy} onClick={() => draft.reset()}>
+                  放弃未保存修改
+                </Button>
+              )}
               <Button
                 ref={saveButton}
                 size="sm"
@@ -1069,7 +1095,7 @@ export function StageWorkspace({
                 disabled={!unlocked || busy || draft.conflict || Boolean(running)}
                 onClick={() => setImpact(true)}
               >
-                保存草稿
+                {draft.dirty ? '保存草稿' : '保存当前成片发布版本'}
               </Button>
             </>
           )}

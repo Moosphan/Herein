@@ -28,6 +28,7 @@ import { workflowCommand } from './process'
 import { probeMedia, subtitleCues } from './audio'
 import { defaultMotion, prepareMotionScene, mergeMotion } from './motion'
 import { authorNativeComposition } from './remotion-authoring'
+import { nativeSettings } from './remotion-native'
 import type { NativeAttemptOptions } from './remotion-repair'
 import type { NativeMaterial } from '../../../shared/video-materials'
 
@@ -329,6 +330,7 @@ async function hyperframes(
 export async function renderWorkflow(input: {
   project: VideoProject
   final: boolean
+  refreshAudio?: boolean
   files: WorkflowFiles
   runtime: WorkflowRuntime
   cwd: string
@@ -361,9 +363,10 @@ export async function renderWorkflow(input: {
     cover: WorkflowFile,
     motion: MotionPlan | undefined
   let nativeRendered = false
-  const targetDuration = final
-    ? stageValue(project, 'roughcut')!.duration
-    : stageValue(project, 'audio')!.duration
+  const targetDuration =
+    final && !input.refreshAudio
+      ? stageValue(project, 'roughcut')!.duration
+      : stageValue(project, 'audio')!.duration
   if (music) {
     if (music.start + 0.001 >= 300 || music.duration > targetDuration + 0.001)
       throw new Error('配乐裁剪范围不能超过正式成片时长')
@@ -390,6 +393,30 @@ export async function renderWorkflow(input: {
     motion = roughcut.motion
     for (const [index, file] of compositionFiles.entries())
       copyFileSync(await files.verify(project.id, file), join(cwd, compositionNames[index]))
+    if (input.refreshAudio) {
+      if (engine !== 'remotion' || !compositionNames.includes('visuals.tsx'))
+        throw new Error('配音更新需要原生 Remotion 冻结工程')
+      phase(`应用已审核配音 v${project.stages.audio!.version}，更新字幕与逐镜时长`)
+      const audio = stageValue(project, 'audio')!
+      const path = join(cwd, 'composition.json')
+      const settings = JSON.parse(readFileSync(path, 'utf8'))
+      const timing = nativeSettings(project)
+      writeFileSync(
+        path,
+        JSON.stringify({
+          ...settings,
+          duration: audio.duration,
+          scenes: timing.scenes.map((scene, index) => ({ ...settings.scenes[index], ...scene })),
+          captions: subtitleCues(audio.tracks),
+        }),
+      )
+      copyFileSync(await files.verify(project.id, audio.file), join(cwd, 'narration.wav'))
+      for (const name of ['composition.json', 'narration.wav']) {
+        const index = compositionNames.indexOf(name)
+        if (index < 0) throw new Error(`冻结原生工程缺少 ${name}`)
+        compositionFiles[index] = await files.import(project.id, join(cwd, name))
+      }
+    }
     // A frozen source can already contain music. Replace/remove it instead of stacking tracks.
     if (roughcut.music) {
       const index = compositionNames.indexOf(
@@ -629,12 +656,7 @@ export async function renderWorkflow(input: {
     !video ||
     video.width !== frame.width ||
     video.height !== frame.height ||
-    Math.abs(
-      probed.duration -
-        (final
-          ? stageValue(project, 'roughcut')!.duration
-          : stageValue(project, 'audio')!.duration),
-    ) > 0.15
+    Math.abs(probed.duration - targetDuration) > 0.15
   )
     throw new Error('输出视频的画幅或音画时长不符合要求')
   if (!final && compositionNames.includes('visuals.tsx')) {
@@ -685,7 +707,10 @@ export async function renderWorkflow(input: {
     sourceStoryboard: final
       ? stageValue(project, 'roughcut')!.sourceStoryboard
       : project.stages.storyboard!.id,
-    sourceAudio: final ? stageValue(project, 'roughcut')!.sourceAudio : project.stages.audio!.id,
+    sourceAudio:
+      final && !input.refreshAudio
+        ? stageValue(project, 'roughcut')!.sourceAudio
+        : project.stages.audio!.id,
     sourceNarration: final
       ? stageValue(project, 'roughcut')!.sourceNarration
       : project.stages.narration!.id,

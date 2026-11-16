@@ -1,4 +1,5 @@
 import {
+  renderSourceProject,
   stageUnlocked,
   stageValue,
   type VideoProject,
@@ -29,4 +30,17 @@ export function productionSourceProject(project: VideoProject): VideoProject {
   return revision?.stage === 'render' && !stageValue(project, 'render')?.imported
     ? { ...project, stages: { ...project.stages, roughcut: { ...revision, stage: 'roughcut' } } }
     : project
+}
+
+/** Keep the preview's visuals while using approved audio corrections for the same script. */
+export function productionEditProject(project: VideoProject): VideoProject {
+  const source = renderSourceProject(productionSourceProject(project))
+  const audio = project.stages.audio
+  if (
+    audio?.status === 'approved' &&
+    source.stages.storyboard?.id === project.stages.storyboard?.id &&
+    source.stages.narration?.id === project.stages.narration?.id
+  )
+    return { ...source, stages: { ...source.stages, audio } }
+  return source
 }

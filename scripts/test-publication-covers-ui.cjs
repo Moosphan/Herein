@@ -1,22 +1,12 @@
-const { app, BrowserWindow, dialog, nativeImage, shell, net } = require('electron')
+const { app, BrowserWindow, dialog, nativeImage, shell } = require('electron')
 const assert = require('node:assert/strict')
-const { mkdtempSync, writeFileSync, readFileSync, existsSync } = require('node:fs')
+const { mkdtempSync, writeFileSync, readFileSync } = require('node:fs')
 const { join } = require('node:path')
 const { tmpdir } = require('node:os')
 const { spawnSync } = require('node:child_process')
 const { setTimeout: delay } = require('node:timers/promises')
 
 const root = mkdtempSync(join(tmpdir(), 'publication-cover-ui-'))
-const originalFetch = net.fetch.bind(net)
-let recoveredDownloads = 0
-net.fetch = (url, options) => {
-  if (url === 'https://image-recovery.example/generated-cover.png') {
-    recoveredDownloads++
-    assert.equal(options.credentials, 'omit')
-    return Promise.resolve(new Response(readFileSync(join(root, 'cover-source.png'))))
-  }
-  return originalFetch(url, options)
-}
 const revealed = []
 shell.showItemInFolder = path => revealed.push(path)
 const node = spawnSync('which', ['node'], { encoding: 'utf8' }).stdout.trim()
@@ -88,8 +78,8 @@ app.whenReady().then(async () => {
     await waitFor('document.querySelector("[data-cover-source]")?.textContent.includes("成片截帧")', 'original source label')
     await screenshot('cover-original-light-1440.png')
     await click('放大预览封面')
-    assert.equal(await evaluate('document.querySelectorAll("[role=dialog] input[type=radio]").length'), 2)
-    for (const [ratio, expected] of [['feed', 4 / 3], ['landscape', 16 / 9]]) {
+    assert.equal(await evaluate('document.querySelectorAll("[role=dialog] input[type=radio]").length'), 3)
+    for (const [ratio, expected] of [['feed', 4 / 3], ['landscape', 16 / 9], ['portrait', 9 / 16]]) {
       await evaluate(`document.querySelector('[role=dialog] input[value=${ratio}]').click()`)
       const actual = await evaluate(`(() => {const rect=document.querySelector('.workflow-cover-preview').getBoundingClientRect();return rect.width/rect.height})()`)
       assert.ok(Math.abs(actual - expected) < 0.02, `${ratio}: ${actual}`)
@@ -113,14 +103,14 @@ app.whenReady().then(async () => {
     await click('AI 生成封面')
     assert.equal(await evaluate('document.querySelector("[role=dialog] textarea").value'), '保留当前风格')
     const runtime = await call('runtime')
-    await call('configure', { ...runtime, bunPath: '' })
+    await call('configure', { ...runtime, codexPath: '' })
     await evaluate('document.querySelector("[role=dialog] input[value=image2]").click()')
     await click('开始生成封面')
     await waitFor('document.querySelector("[role=dialog] [role=alert]")?.textContent.includes("未能启动")', 'launch error keeps dialog')
-    assert.ok(await evaluate('document.body.textContent.includes("请在执行环境配置 Image2 脚本和 Bun 路径")'))
+    assert.ok(await evaluate('document.body.textContent.includes("请在执行环境配置已登录且支持原生图片生成的 Codex CLI")'))
     assert.equal((await call('get', initial.id)).jobs.length, initial.jobs.length)
     assert.equal(await evaluate('document.querySelector("[role=dialog] textarea").value'), '保留当前风格')
-    await call('configure', runtime)
+    await call('configure', { ...runtime, bunPath: '', image2Path: '' })
     await evaluate('document.querySelector("[role=dialog] input[value=code]").click()')
     for (const theme of ['light', 'dark']) {
       await evaluate(`document.documentElement.classList.toggle('dark', ${theme === 'dark'})`)
@@ -228,12 +218,14 @@ app.whenReady().then(async () => {
     await call('generate', { projectId: initial.id, stage: 'publish', executor: 'codex', expectedRevision: project.revision, requestId: 'image2-cover', cover: { method: 'image2', feedback: '中文标题居中安全区' } })
     project = await completed()
     assert.equal(project.jobs[0].state, 'succeeded', project.jobs[0].error)
-    assert.equal(project.jobs[0].executor, 'image2')
+    assert.equal(project.jobs[0].executor, 'codex')
     const image2 = project.stages.publish.payload.platforms.bilibili.cover
     assert.equal(image2.method, 'image2')
     const imageArgs = JSON.parse(readFileSync(join(root, 'cover-image-args.json'), 'utf8'))
-    assert.equal(imageArgs[imageArgs.indexOf('--model') + 1], 'gpt-image-2')
-    assert.equal(imageArgs[imageArgs.indexOf('--size') + 1], '1600x1200')
+    assert.ok(imageArgs.includes('image_generation'))
+    assert.equal(imageArgs[imageArgs.indexOf('--sandbox') + 1], 'workspace-write')
+    const task = JSON.parse(readFileSync(join(root, 'cover-image-task.json'), 'utf8'))
+    assert.deepEqual([task.width, task.height], [1600, 1200])
     assert.deepEqual(nativeImage.createFromPath(join(root, image2.file.path)).getSize(), { width: 1600, height: 900 })
     writeFileSync(join(root, 'cover-mode'), 'jpeg')
     await call('generate', {
@@ -252,17 +244,13 @@ app.whenReady().then(async () => {
       ).getSize(),
       { width: 1600, height: 1200 },
     )
-    writeFileSync(join(root, 'cover-mode'), 'download-error')
-    const recoveryJob = await call('generate', { projectId: initial.id, stage: 'publish', executor: 'codex', expectedRevision: project.revision, requestId: 'recover-image2-cover', cover: { method: 'image2' } })
+    writeFileSync(join(root, 'cover-mode'), 'tool-unavailable')
+    const unavailableBase = project.stages.publish.id
+    await call('generate', { projectId: initial.id, stage: 'publish', executor: 'codex', expectedRevision: project.revision, requestId: 'unavailable-native-image-tool', cover: { method: 'image2' } })
     project = await completed()
-    assert.equal(project.jobs[0].state, 'succeeded', project.jobs[0].error)
-    assert.equal(recoveredDownloads, 1)
-    assert.equal(readFileSync(join(root, 'cover-generation-count'), 'utf8'), '1')
-    const recoveryDirectory = join(root, 'cache/video-cover-recovery', initial.id, recoveryJob.id)
-    assert.ok(existsSync(join(recoveryDirectory, 'result.json')))
-    assert.deepEqual(nativeImage.createFromPath(join(recoveryDirectory, 'original.png')).getSize(), {width:1600,height:1200})
-    assert.ok(!existsSync(join(root, 'cache/video-workflow', recoveryJob.id)))
-    assert.equal(project.stages.publish.payload.platforms.bilibili.cover.method, 'image2')
+    assert.equal(project.jobs[0].state, 'failed')
+    assert.match(project.jobs[0].error, /image_generation/)
+    assert.equal(project.stages.publish.id, unavailableBase)
     writeFileSync(join(root, 'cover-mode'), '')
     await waitFor('document.querySelector("[data-cover-status]")?.textContent.includes("已纳入")', 'image2 applied')
     await evaluate('document.querySelector("button[aria-label=封面历史版本]").focus()')
@@ -309,6 +297,178 @@ app.whenReady().then(async () => {
     window.webContents.setZoomFactor(2)
     await screenshot('cover-panel-200percent.png')
     assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'))
+    window.webContents.setZoomFactor(1)
+    window.setSize(1440, 1100)
+    project = await call('get', initial.id)
+    const beforePortrait = structuredClone(project.stages.publish.payload.platforms.douyin)
+    await click('重新生成封面')
+    await waitFor(
+      'document.querySelector("[role=dialog] input[value=portrait]")',
+      'portrait generation choice',
+    )
+    await evaluate('document.querySelector("[role=dialog] input[value=portrait]").click()')
+    await screenshot('cover-portrait-generation.png')
+    await click('开始生成封面')
+    project = await completed()
+    assert.equal(project.jobs[0].state, 'succeeded', project.jobs[0].error)
+    const triple = project.stages.publish.payload.platforms.bilibili.cover
+    assert.ok(triple.portraitFile, 'Bilibili cover set includes 9:16')
+    assert.deepEqual(nativeImage.createFromPath(join(root, triple.portraitFile.path)).getSize(), {
+      width: 1080,
+      height: 1920,
+    })
+    assert.deepEqual(project.stages.publish.payload.platforms.douyin, beforePortrait)
+    await click('放大预览封面')
+    await waitFor(
+      'document.querySelector("[role=dialog] input[value=portrait]")',
+      'portrait preview option',
+    )
+    await evaluate('document.querySelector("[role=dialog] input[value=portrait]").click()')
+    const portraitAspect = await evaluate(
+      '(()=>{const box=document.querySelector(".workflow-cover-preview").getBoundingClientRect();return box.width/box.height})()',
+    )
+    assert.ok(Math.abs(portraitAspect - 9 / 16) < 0.01)
+    await click('打开预览封面所在文件夹')
+    assert.equal(revealed.at(-1), join(root, triple.portraitFile.path))
+    await screenshot('cover-portrait-preview.png')
+    await key('Escape')
+    await call(
+      'approve',
+      project.id,
+      'publish',
+      project.stages.publish.id,
+      project.revision,
+      'approve-portrait-cover',
+      '',
+    )
+    const portraitExport = await call('export', project.id, 'bilibili')
+    assert.deepEqual(
+      readFileSync(join(portraitExport, 'cover-9x16.png')),
+      readFileSync(join(root, triple.portraitFile.path)),
+    )
+    assert.deepEqual(
+      readFileSync(join(portraitExport, 'cover.png')),
+      readFileSync(join(root, triple.file.path)),
+    )
+    await evaluate('document.querySelector("input[type=radio][value=douyin]").click()')
+    await click('AI 生成封面')
+    await waitFor('document.querySelector("[role=dialog] textarea")', 'Douyin AI generation')
+    await click('开始生成封面')
+    project = await completed()
+    const dyPortrait = project.stages.publish.payload.platforms.douyin.cover
+    assert.equal(project.jobs[0].state, 'succeeded', project.jobs[0].error)
+    assert.equal(dyPortrait.platform, 'douyin')
+    assert.deepEqual([dyPortrait.width, dyPortrait.height], [1080, 1920])
+    assert.deepEqual(project.stages.publish.payload.platforms.bilibili.cover, triple)
+    assert.deepEqual(nativeImage.createFromPath(join(root, dyPortrait.file.path)).getSize(), {
+      width: 1080,
+      height: 1920,
+    })
+    writeFileSync(
+      join(root, 'cover-portrait-source.png'),
+      nativeImage
+        .createFromPath(join(root, 'cover-source.png'))
+        .resize({ width: 1080, height: 1920 })
+        .toPNG(),
+    )
+    for (const platform of ['douyin', 'bilibili']) {
+      const otherPlatform = platform === 'bilibili' ? 'douyin' : 'bilibili'
+      const otherMetadata = structuredClone(project.stages.publish.payload.platforms[otherPlatform])
+      const previousCover = project.stages.publish.payload.platforms[platform].cover
+      const expectedReference = previousCover.portraitFile ?? previousCover.feedFile
+      await call('generate', {
+        projectId: project.id,
+        stage: 'publish',
+        executor: 'codex',
+        expectedRevision: project.revision,
+        requestId: `portrait-image2-${platform}`,
+        cover: { method: 'image2', platform, includePortrait: true },
+      })
+      project = await completed()
+      assert.equal(project.jobs[0].state, 'succeeded', project.jobs[0].error)
+      const imageCover = project.stages.publish.payload.platforms[platform].cover
+      assert.equal(imageCover.method, 'image2')
+      assert.deepEqual(
+        nativeImage.createFromPath(join(root, imageCover.portraitFile.path)).getSize(),
+        { width: 1080, height: 1920 },
+      )
+      assert.deepEqual(project.stages.publish.payload.platforms[otherPlatform], otherMetadata)
+      const recorded = JSON.parse(readFileSync(join(root, 'cover-image-args.json'), 'utf8'))
+      assert.ok(recorded.includes('image_generation'))
+      assert.equal(recorded[recorded.indexOf('--image') + 1], join(root, expectedReference.path))
+      const task = JSON.parse(readFileSync(join(root, 'cover-image-task.json'), 'utf8'))
+      assert.deepEqual([task.width, task.height], [1080, 1920])
+    }
+    const validPortraitRevision = project.stages.publish.id
+    writeFileSync(join(root, 'cover-mode'), 'portrait-invalid')
+    await call('generate', {
+      projectId: project.id,
+      stage: 'publish',
+      executor: 'codex',
+      expectedRevision: project.revision,
+      requestId: 'portrait-second-image-invalid',
+      cover: { method: 'image2', platform: 'bilibili', includePortrait: true },
+    })
+    project = await completed()
+    assert.equal(project.jobs[0].state, 'failed')
+    assert.equal(
+      project.stages.publish.id,
+      validPortraitRevision,
+      'second image failure retains the complete old version',
+    )
+    writeFileSync(join(root, 'cover-mode'), 'portrait-slow')
+    const pendingPortrait = await call('generate', {
+      projectId: project.id,
+      stage: 'publish',
+      executor: 'codex',
+      expectedRevision: project.revision,
+      requestId: 'portrait-second-image-cancel',
+      cover: { method: 'image2', platform: 'bilibili', includePortrait: true },
+    })
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const status = await call('get', project.id)
+      if (status.jobs.find((job) => job.id === pendingPortrait.id).phase.includes('1080×1920'))
+        break
+      await delay(100)
+    }
+    await call('cancel', pendingPortrait.id)
+    project = await completed()
+    assert.equal(project.jobs[0].state, 'cancelled')
+    assert.equal(project.stages.publish.id, validPortraitRevision)
+    const legacyPublication = structuredClone(project.stages.publish.payload)
+    legacyPublication.platforms.douyin.cover = { ...triple, platform: 'douyin' }
+    delete legacyPublication.platforms.douyin.cover.portraitFile
+    await call('save', project.id, 'publish', legacyPublication, project.revision, 'legacy-douyin-cover')
+    await waitFor('document.querySelector("[data-cover-source]")?.textContent.includes("1600×900")', 'legacy Douyin cover displays primary dimensions')
+    await click('放大预览封面')
+    const legacyAspect = await evaluate('(()=>{const box=document.querySelector(".workflow-cover-preview").getBoundingClientRect();return box.width/box.height})()')
+    assert.ok(Math.abs(legacyAspect - 16 / 9) < 0.01)
+    assert.ok(await evaluate(`document.querySelector('.workflow-cover-preview').src.includes(${JSON.stringify(triple.file.id)})`))
+    await key('Escape')
+    const storedRuntimePath = join(root, 'config/video-workflow.json')
+    const storedRuntime = JSON.parse(readFileSync(storedRuntimePath, 'utf8'))
+    writeFileSync(storedRuntimePath, JSON.stringify({ ...storedRuntime, bunPath: '/removed/bun', image2Path: '/removed/old-image-api.ts' }))
+    await evaluate('document.querySelector("[data-workflow-settings]").click()')
+    await waitFor('document.querySelector("[role=dialog] input")', 'Codex image settings')
+    assert.ok(await evaluate(`Array.from(document.querySelectorAll('[role=dialog] input')).some(input=>input.value===${JSON.stringify(runtime.codexPath)})`))
+    assert.ok(!await evaluate('document.querySelector("[role=dialog]").textContent.includes("baoyu-imagine")'))
+    assert.ok(!await evaluate('document.querySelector("[role=dialog]").textContent.includes("Bun（")'))
+    for (const theme of ['light', 'dark']) {
+      await evaluate(`document.documentElement.classList.toggle('dark', ${theme === 'dark'})`)
+      for (const width of [1440, 1024]) {
+        window.setSize(width, 1000)
+        await screenshot(`native-imagegen-settings-${theme}-${width}.png`)
+        assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'))
+      }
+    }
+    window.webContents.setZoomFactor(2)
+    await screenshot('native-imagegen-settings-200percent.png')
+    await key('Tab')
+    assert.ok(await evaluate('document.querySelector("[role=dialog]").contains(document.activeElement)'))
+    window.webContents.setZoomFactor(1)
+    await click('保存配置')
+    await waitFor('!document.querySelector("[role=dialog]")', 'Codex settings save ignores unused legacy paths')
+    assert.equal(await evaluate('document.activeElement.hasAttribute("data-workflow-settings")'), true)
     console.log('PUBLICATION_COVERS_OK', root)
     app.exit(0)
   } catch (error) {

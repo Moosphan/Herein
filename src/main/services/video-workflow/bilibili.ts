@@ -86,6 +86,18 @@ export class PlatformPublishingService {
             : '应用退出前的投稿结果待核查，请先检查创作中心',
       })
     }
+    for (const row of this.db
+      .prepare(`SELECT record FROM ${this.table}`)
+      .all() as SubmissionRow[]) {
+      const record = JSON.parse(row.record) as BilibiliSubmission
+      if (record.snapshot.updateTarget) {
+        try {
+          this.recoverUpdateReceipt(record)
+        } catch {
+          /* Keep the durable receipt for a later account or file recovery. */
+        }
+      }
+    }
     // A restart must not silently publish plans whose time passed while the app was closed.
     for (const record of this.scheduled()) {
       if (
@@ -139,6 +151,23 @@ export class PlatformPublishingService {
     this.changed(record.projectId)
     return next
   }
+  private recoverUpdateReceipt(record: BilibiliSubmission) {
+    if (!record.snapshot.updateTarget || BILIBILI_ACTIVE.includes(record.state)) return record
+    const client = this.clientForUid(record.snapshot.accountUid)
+    const receipt = client.readUpdateReceipt(record.id)
+    if (!receipt) return record
+    if (
+      (record.uploadedCid && receipt.cid !== record.uploadedCid) ||
+      (record.uploadedFilename && receipt.filename && receipt.filename !== record.uploadedFilename)
+    )
+      throw new Error('更新内容回执冲突，请核查创作中心')
+    const next = this.update(record, {
+      uploadedCid: receipt.cid,
+      uploadedFilename: receipt.filename ?? record.uploadedFilename,
+    })
+    client.clearUpdateReceipt(record.id)
+    return next
+  }
   private busy() {
     return (
       this.login ||
@@ -181,6 +210,9 @@ export class PlatformPublishingService {
           name: null,
           qrCode: null,
           error: (error as Error).message,
+          ...(error instanceof CatbusFailure
+            ? { platformCode: error.platformCode, uploadedFilename: error.uploadedFilename }
+            : {}),
         }
       } finally {
         this.checking = undefined
@@ -361,7 +393,28 @@ export class PlatformPublishingService {
         (input.copyright === 'repost' && metadata.submission.source !== input.source?.trim()))
     )
       throw new Error('投稿设置与已审核资料不一致，请保存并重新审核后投稿')
+    let updateTarget: BilibiliPublishSnapshot['updateTarget']
+    if (input.updateSubmissionId !== undefined) {
+      if (this.platform !== 'bilibili') throw new Error('此平台尚未支持原作品更新')
+      if (input.scheduleAt) throw new Error('原作品更新暂不支持定时发布')
+      const original = this.get(project.id, input.updateSubmissionId)
+      if (
+        !['published', 'private'].includes(original.state) ||
+        !original.externalId ||
+        !original.url
+      )
+        throw new Error('请选择本项目已审核通过的原作品')
+      if (original.snapshot.accountUid !== input.accountUid)
+        throw new Error('原作品与当前账号不一致')
+      updateTarget = {
+        sourceRecordId: original.id,
+        externalId: original.externalId,
+        url: publishingVideoUrl('bilibili', original.externalId),
+        accountUid: input.accountUid,
+      }
+    }
     const snapshot: BilibiliPublishSnapshot = structuredClone({
+      ...(updateTarget ? { updateTarget } : {}),
       renderRevisionId: project.stages.render!.id,
       publishRevisionId: project.stages.publish.id,
       video: render.file,
@@ -373,7 +426,16 @@ export class PlatformPublishingService {
       copyright: input.copyright,
       source: input.copyright === 'repost' ? input.source!.trim() : '',
     })
-    const intent = fingerprint([project.id, snapshot])
+    const intentSnapshot = updateTarget
+      ? {
+          ...snapshot,
+          updateTarget: {
+            externalId: updateTarget.externalId,
+            accountUid: updateTarget.accountUid,
+          },
+        }
+      : snapshot
+    const intent = fingerprint([project.id, intentSnapshot])
     const existing = (
       this.db
         .prepare(`SELECT record FROM ${this.table} WHERE intent_key=? ORDER BY rowid DESC`)
@@ -382,6 +444,18 @@ export class PlatformPublishingService {
       .map((row) => JSON.parse(row.record) as BilibiliSubmission)
       .find((record) => !RETRYABLE.includes(record.state))
     if (existing) return existing
+    if (updateTarget) {
+      if (
+        this.list(project.id).some(
+          (record) =>
+            record.snapshot.updateTarget?.externalId === updateTarget!.externalId &&
+            ['queued', 'uploading', 'submitting', 'reviewing', 'unknown', 'risk_control'].includes(
+              record.state,
+            ),
+        )
+      )
+        throw new Error('原作品已有进行中或待核查的更新，请先核查平台状态')
+    }
     const unresolved = this.list(project.id).find(
       (record) =>
         ['unknown', 'risk_control'].includes(record.state) &&
@@ -402,8 +476,8 @@ export class PlatformPublishingService {
           ? '核对账号、分区与已审核文件'
           : '核对账号、可见性与已审核文件',
       snapshot,
-      externalId: null,
-      url: null,
+      externalId: updateTarget?.externalId ?? null,
+      url: updateTarget?.url ?? null,
       error: null,
       createdAt: now,
       updatedAt: now,
@@ -527,16 +601,26 @@ export class PlatformPublishingService {
       if (signal.aborted) throw new CatbusFailure('CANCELLED', this.platform)
       started = true
       record = this.update(record, { state: 'uploading' })
-      const result = await client.publish(record.snapshot, video, cover, signal, (phase) => {
-        record = this.update(record, { phase })
-      })
+      const result = await client.publish(
+        record.snapshot,
+        video,
+        cover,
+        signal,
+        (phase) => {
+          record = this.update(record, { phase })
+        },
+        record.id,
+      )
       this.update(record, {
         state: 'reviewing',
+        uploadedCid: result.uploadedCid,
+        uploadedFilename: result.uploadedFilename,
         externalId: result.id,
         url: result.url,
         error: null,
         submittedAt: new Date().toISOString(),
       })
+      if (record.snapshot.updateTarget) client.clearUpdateReceipt(record.id)
     } catch (error) {
       const code = error instanceof CatbusFailure ? error.code : ''
       const state = ['AUTH_REQUIRED', 'AUTH_EXPIRED'].includes(code)
@@ -544,12 +628,36 @@ export class PlatformPublishingService {
         : code === 'RISK_CONTROL'
           ? 'risk_control'
           : started &&
-              !['USAGE', 'UNSUPPORTED', 'TOPIC_INVALID', 'TOPIC_UNSUPPORTED'].includes(code)
+              ![
+                'USAGE',
+                'UNSUPPORTED',
+                'TOPIC_INVALID',
+                'TOPIC_UNSUPPORTED',
+                'UPDATE_UNSUPPORTED',
+                'UPDATE_INVALID',
+                'UPDATE_REJECTED',
+              ].includes(code)
             ? 'unknown'
             : code === 'CANCELLED'
               ? 'cancelled'
               : 'failed'
-      this.update(record, { state, error: (error as Error).message })
+      this.update(record, {
+        state,
+        error: (error as Error).message,
+        ...(error instanceof CatbusFailure
+          ? { platformCode: error.platformCode, uploadedFilename: error.uploadedFilename }
+          : {}),
+        ...(error instanceof CatbusFailure && error.uploadedCid
+          ? { uploadedCid: error.uploadedCid }
+          : {}),
+      })
+      if (record.snapshot.updateTarget) {
+        try {
+          this.recoverUpdateReceipt(this.get(record.projectId, record.id))
+        } catch {
+          /* Retain the sidecar until a later verified recovery. */
+        }
+      }
     }
   }
   async cancel(projectId: string, id: string) {
@@ -574,7 +682,7 @@ export class PlatformPublishingService {
     }
   }
   private async refreshRecord(projectId: string, id: string, suppliedId?: string) {
-    const record = this.get(projectId, id)
+    const record = this.recoverUpdateReceipt(this.get(projectId, id))
     if (suppliedId !== undefined && (typeof suppliedId !== 'string' || suppliedId.length > 500))
       throw new Error(`请填写有效${PUBLISHING_PLATFORMS[this.platform].item}或作品链接`)
     if (BILIBILI_ACTIVE.includes(record.state)) throw new Error('请等待当前投稿结束')
@@ -596,16 +704,41 @@ export class PlatformPublishingService {
       (suppliedId && item.title !== record.snapshot.metadata.title)
     )
       throw new Error('此稿件的账号或标题与本次投稿不符，未绑定记录')
+    let platformStatus = item.status
+    if (record.snapshot.updateTarget) {
+      const content = await client.inspectUpdate(record.snapshot.updateTarget, this.reads.signal)
+      const matches = Boolean(
+        (record.uploadedFilename && content.filename === record.uploadedFilename) ||
+        (record.uploadedCid && content.cid === record.uploadedCid),
+      )
+      const rejected =
+        record.platformCode === 21001 || /参数错误；状态码\s*21001(?:\D|$)/.test(record.error ?? '')
+      if (rejected && (!matches || !content.status))
+        return this.update(record, {
+          state: 'failed',
+          platformCode: 21001,
+          error: new CatbusFailure('UPDATE_REJECTED', this.platform).message,
+          verifiedAt: new Date().toISOString(),
+        })
+      if (content.status === 'reviewing' || content.status === 'rejected') {
+        platformStatus = content.status
+      } else if (!matches || content.status !== 'published') {
+        return this.update(record, {
+          error: '尚未核实本次更新内容，请在创作中心核查',
+          verifiedAt: new Date().toISOString(),
+        })
+      }
+    }
     const state =
-      item.status === 'published'
+      platformStatus === 'published'
         ? this.platform === 'bilibili' && record.snapshot.visibility === 'private'
           ? 'private'
           : 'published'
-        : item.status === 'private'
+        : platformStatus === 'private'
           ? 'private'
-          : item.status === 'rejected'
+          : platformStatus === 'rejected'
             ? 'rejected'
-            : item.status === 'reviewing'
+            : platformStatus === 'reviewing'
               ? 'reviewing'
               : null
     if (!state) throw new Error('平台状态暂无法确认，已保留原记录')
@@ -619,12 +752,49 @@ export class PlatformPublishingService {
   }
   confirmNotSubmitted(projectId: string, id: string) {
     const record = this.get(projectId, id)
+    if (record.snapshot.updateTarget) return this.confirmUpdateNotApplied(record)
     if (!['unknown', 'risk_control'].includes(record.state))
       throw new Error('只有待核查或风控记录可以确认未投稿')
     return this.update(record, {
       state: 'failed',
       error: '用户核查创作中心后确认未投稿，允许手动发起新尝试',
     })
+  }
+  private async confirmUpdateNotApplied(record: BilibiliSubmission) {
+    record = this.recoverUpdateReceipt(record)
+    if (!['unknown', 'risk_control'].includes(record.state))
+      throw new Error('只有待核查的更新可以确认未生效')
+    if (this.busy()) throw new Error('请等待当前账号或投稿操作结束')
+    this.accountReads++
+    try {
+      const client = this.clientForUid(record.snapshot.accountUid)
+      const account = await client.account(this.reads.signal)
+      if (account.uid !== record.snapshot.accountUid) throw new Error('请连接原作品账号后核查')
+      const item = await client.find(record.snapshot.updateTarget!.externalId, this.reads.signal)
+      if (
+        !item ||
+        item.uid !== account.uid ||
+        !['published', 'private'].includes(String(item.status))
+      )
+        throw new Error('平台状态尚未稳定，请等待审核或在创作中心核查')
+      const content = await client.inspectUpdate(record.snapshot.updateTarget!, this.reads.signal)
+      if (content.status !== 'published')
+        throw new Error('平台状态尚未稳定，请等待审核或在创作中心核查')
+      if (
+        (record.uploadedCid && content.cid === record.uploadedCid) ||
+        (record.uploadedFilename && content.filename === record.uploadedFilename)
+      )
+        throw new Error('平台已有本次更新内容，请刷新核查状态')
+      const current = this.get(record.projectId, record.id)
+      if (!['unknown', 'risk_control'].includes(current.state))
+        throw new Error('更新记录已变化，请刷新核查')
+      return this.update(current, {
+        state: 'failed',
+        error: '用户核查创作中心后确认此次更新未生效，允许手动更新原作品',
+      })
+    } finally {
+      this.accountReads--
+    }
   }
   async dispose() {
     this.stopped = true

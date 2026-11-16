@@ -12,7 +12,10 @@ const { VideoWorkflowService } = require('../src/main/services/video-workflow/se
 const { WorkflowRuntimeManager } = require('../src/main/services/video-workflow/cli')
 const { renderWorkflow } = require('../src/main/services/video-workflow/render')
 const { importNativeMaterial } = require('../src/main/services/video-workflow/native-materials')
-const { NATIVE_REMOTION_ENTRY_V1 } = require('../src/main/services/video-workflow/remotion-native')
+const {
+  NATIVE_REMOTION_ENTRY_V1,
+  NATIVE_REMOTION_ENTRY_V2,
+} = require('../src/main/services/video-workflow/remotion-native')
 const { renderRemotion } = require('../src/main/services/video-workflow/remotion')
 
 const root = mkdtempSync(join(tmpdir(), 'native-remotion-render-'))
@@ -64,7 +67,7 @@ app.whenReady().then(async () => {
     const agent = join(root, 'agent')
     writeFileSync(
       agent,
-      `#!/usr/bin/env node\nif(process.argv[2]==='mcp'){process.stdout.write('[]');process.exit(0)}const fs=require('node:fs');let input='';process.stdin.on('data',data=>input+=data);process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(promptPath)},input);fs.appendFileSync(${JSON.stringify(callPath)},'x');let value=JSON.parse(fs.readFileSync(${JSON.stringify(resultPath)},'utf8'));if(Array.isArray(value)){const next=value.shift();fs.writeFileSync(${JSON.stringify(resultPath)},JSON.stringify(value));value=next;}if(value.hold){setInterval(()=>{},1000);return;}fs.writeFileSync(process.argv[process.argv.indexOf('--output-last-message')+1],JSON.stringify(value));});`,
+      `#!/usr/bin/env node\nif(process.argv[2]==='mcp'){process.stdout.write('[]');process.exit(0)}const fs=require('node:fs');let input='';process.stdin.on('data',data=>input+=data);process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(promptPath)},input);fs.appendFileSync(${JSON.stringify(callPath)},'x');let value=JSON.parse(fs.readFileSync(${JSON.stringify(resultPath)},'utf8'));if(Array.isArray(value)){const next=value.shift();fs.writeFileSync(${JSON.stringify(resultPath)},JSON.stringify(value));value=next;}if(value.files && !fs.existsSync('host-captions.tsx')){process.stderr.write('Host caption API missing during authoring');process.exit(1);}if(value.hold){setInterval(()=>{},1000);return;}fs.writeFileSync(process.argv[process.argv.indexOf('--output-last-message')+1],JSON.stringify(value));});`,
     )
     chmodSync(agent, 0o700)
     service.runtime.set({ ...runtime, codexPath: agent })
@@ -598,8 +601,10 @@ app.whenReady().then(async () => {
             join(oldDirectory, final.compositionNames[index]),
           )
         writeFileSync(join(oldDirectory, 'composition.json'), JSON.stringify(config))
-        writeFileSync(join(oldDirectory, 'remotion.tsx'), NATIVE_REMOTION_ENTRY_V1)
-        await renderRemotion(runtime, oldDirectory, new AbortController().signal, true, () => {})
+        for (const entry of [NATIVE_REMOTION_ENTRY_V1, NATIVE_REMOTION_ENTRY_V2]) {
+          writeFileSync(join(oldDirectory, 'remotion.tsx'), entry)
+          await renderRemotion(runtime, oldDirectory, new AbortController().signal, true, () => {})
+        }
       }
       const priorId = project.stages.roughcut.id
       if (format === 'landscape') {

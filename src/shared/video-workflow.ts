@@ -290,8 +290,10 @@ export interface PublicationGeneration {
 export interface PublicationCover {
   file: WorkflowFile
   feedFile: WorkflowFile
+  portraitFile?: WorkflowFile
   designFile?: WorkflowFile
   sourceRenderId: string
+  reuseConfirmations?: { renderId: string; confirmedAt: string }[]
   method: 'code' | 'image2' | 'frame'
   platform?: VideoPlatform
   frameSource?: { videoSha256: string; time: number; frame: number; fps: number }
@@ -305,6 +307,8 @@ export interface PublicationCover {
 export interface CoverGeneration {
   method: 'code' | 'image2'
   feedback?: string
+  platform?: VideoPlatform
+  includePortrait?: boolean
 }
 export interface PlatformMetadata {
   title: string
@@ -369,6 +373,8 @@ export interface WorkflowOperation {
   feedback?: string
   sourceVersion?: number
   resultVersion?: number
+  platform?: VideoPlatform
+  includePortrait?: boolean
   changes?: { sceneId: string; title: string; field: string; before: string; after: string }[]
 }
 export interface WorkflowJob {
@@ -949,6 +955,10 @@ export function validatePayload<Stage extends VideoStage>(
   return output as StagePayloads[Stage]
 }
 
+export function publicationCoverRenderId(cover: PublicationCover): string {
+  return cover.reuseConfirmations?.at(-1)?.renderId ?? cover.sourceRenderId
+}
+
 export function validatePublicationCover(value: unknown): PublicationCover {
   const input = record(value)
   if (
@@ -962,6 +972,23 @@ export function validatePublicationCover(value: unknown): PublicationCover {
     input.feedback.length > 5000
   )
     throw new Error('封面参数无效，请重新生成')
+  let reuseConfirmations: PublicationCover['reuseConfirmations']
+  if (input.reuseConfirmations !== undefined) {
+    if (!Array.isArray(input.reuseConfirmations) || !input.reuseConfirmations.length)
+      throw new Error('封面复用确认无效')
+    reuseConfirmations = input.reuseConfirmations.map((entry) => {
+      const confirmation = record(entry)
+      if (
+        typeof confirmation.renderId !== 'string' ||
+        !confirmation.renderId.trim() ||
+        confirmation.renderId.length > 80 ||
+        typeof confirmation.confirmedAt !== 'string' ||
+        !Number.isFinite(Date.parse(confirmation.confirmedAt))
+      )
+        throw new Error('封面复用确认无效')
+      return { renderId: confirmation.renderId, confirmedAt: confirmation.confirmedAt }
+    })
+  }
   const platform = input.platform
   if (platform !== undefined && platform !== 'bilibili' && platform !== 'douyin')
     throw new Error('封面平台无效')
@@ -992,6 +1019,12 @@ export function validatePublicationCover(value: unknown): PublicationCover {
     }
   } else if (input.frameSource !== undefined) throw new Error('封面来源参数无效')
   const original = input.method === 'frame' && platform === 'douyin'
+  // Older AI covers used the dual landscape shape on either platform.
+  const portrait =
+    platform === 'douyin' && (input.portraitFile !== undefined || input.height === 1920)
+  const expected = portrait
+    ? { width: 1080, height: 1920, feedWidth: 1080, feedHeight: 1920 }
+    : { width: 1600, height: 900, feedWidth: 1600, feedHeight: 1200 }
   if (
     original
       ? ![input.width, input.height].every(
@@ -999,10 +1032,7 @@ export function validatePublicationCover(value: unknown): PublicationCover {
         ) ||
         input.feedWidth !== input.width ||
         input.feedHeight !== input.height
-      : input.width !== 1600 ||
-        input.height !== 900 ||
-        input.feedWidth !== 1600 ||
-        input.feedHeight !== 1200
+      : Object.entries(expected).some(([key, size]) => input[key] !== size)
   )
     throw new Error('封面尺寸无效')
   const checkedFile = (value: unknown) => {
@@ -1017,8 +1047,10 @@ export function validatePublicationCover(value: unknown): PublicationCover {
   return {
     file: checkedFile(input.file),
     feedFile: checkedFile(input.feedFile),
+    ...(input.portraitFile === undefined ? {} : { portraitFile: checkedFile(input.portraitFile) }),
     ...(designFile ? { designFile } : {}),
     sourceRenderId: input.sourceRenderId,
+    ...(reuseConfirmations ? { reuseConfirmations } : {}),
     method: input.method as PublicationCover['method'],
     ...(platform ? { platform } : {}),
     ...(frameSource ? { frameSource } : {}),

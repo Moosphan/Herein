@@ -1,8 +1,8 @@
+import { productionEditProject } from '../../../shared/video-production'
 import { BrowserWindow, session } from 'electron'
 import { randomUUID } from 'node:crypto'
 import {
   stageValue,
-  renderSourceProject,
   videoFrame,
   validateMotionPlan,
   storyboardMotionReadiness,
@@ -412,7 +412,7 @@ export function motionPrompt(
   sceneId?: string,
   options: { initial?: boolean } = {},
 ) {
-  if (!options.initial) project = renderSourceProject(project)
+  if (!options.initial) project = productionEditProject(project)
   const storyboard = stageValue(project, 'storyboard')!
   const requirements = extractMotionRequirements(project, sceneId)
   const initial = options.initial === true

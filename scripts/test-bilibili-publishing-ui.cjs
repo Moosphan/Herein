@@ -42,8 +42,9 @@ app.whenReady().then(async () => {
     )
     await delay(100)
   }
-  const key = async (keyCode) => {
+  const key = async (keyCode, nativeEnter = false) => {
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode })
+    if (nativeEnter) window.webContents.sendInputEvent({ type: 'char', keyCode: '\r' })
     window.webContents.sendInputEvent({ type: 'keyUp', keyCode })
     await delay(120)
   }
@@ -125,15 +126,22 @@ app.whenReady().then(async () => {
       await delay(100)
     }
     assert.ok(window)
+    app.focus({ steal: true })
+    window.show()
+    window.focus()
+    await delay(300)
     window.setMinimumSize(720, 640)
     window.setSize(1440, 1100)
     await waitFor('document.querySelector("nav")', 'app loaded')
-    await evaluate(
-      `location.hash='/video'`,
-    )
+    await evaluate(`location.hash='/video'`)
     await waitFor('document.querySelector(".workflow-project-row")', 'project list')
     await click('继续创作')
     await waitFor('document.querySelector("[data-bilibili-publishing]")', 'publishing panel')
+    assert.equal(
+      await evaluate('document.querySelectorAll("[data-bilibili-submission]").length'),
+      0,
+    )
+    assert.equal(await evaluate('document.querySelector("[data-publishing-history]")'), null)
     for (const theme of ['light', 'dark']) {
       await evaluate(`document.documentElement.classList.toggle('dark', ${theme === 'dark'})`)
       await pointerClick('[aria-label="播放成片预览"]')
@@ -319,13 +327,14 @@ app.whenReady().then(async () => {
       copyright: 'original',
       source: '',
     })
+    assert.ok(await evaluate('document.querySelector("button[aria-label=发布方式]")'))
     await screenshot('bilibili-ready-light-1440.png')
     writeFileSync(join(root, 'mode'), 'slow')
     await evaluate(
       `(()=>{const button=[...document.querySelectorAll('button')].find(item=>item.textContent.trim()==='一键发布到 B 站');button.click();button.click()})()`,
     )
     await waitFor(
-      'document.querySelector("[data-bilibili-submission=uploading]")',
+      'document.querySelector("[data-bilibili-publishing] > [data-bilibili-submission=uploading]")',
       'upload started',
     )
     await click('管理 B 站账号')
@@ -337,17 +346,18 @@ app.whenReady().then(async () => {
     await click('关闭B 站账号管理')
     await screenshot('bilibili-uploading-light-1440.png')
     await waitFor(
-      'document.querySelector("[data-bilibili-submission=reviewing]")',
+      'document.querySelector("[data-bilibili-publishing] > [data-bilibili-submission=reviewing]")',
       'reviewing receipt',
     )
     assert.equal(readFileSync(join(root, 'calls'), 'utf8').trim().split('\n').length, 1)
     await click('核查平台状态')
     await waitFor(
-      'document.querySelector("[data-bilibili-submission=published]")',
+      'document.querySelector("[data-bilibili-publishing] > [data-bilibili-submission=published]")',
       'published receipt',
     )
     await click('打开作品 BV1xx411c7mD')
     assert.deepEqual(opened, ['https://www.bilibili.com/video/BV1xx411c7mD'])
+    assert.equal(await evaluate('document.querySelector("[data-publishing-history]")'), null)
     await screenshot('bilibili-published-light-1440.png')
     await evaluate(
       'document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark"',
@@ -369,6 +379,65 @@ app.whenReady().then(async () => {
         '[...document.querySelectorAll("button")].some(item=>item.textContent.includes("导出 Bilibili 发布包"))',
       ),
     )
+    const originalRecord = (await call('bilibiliSubmissions', project.id)).find(
+      (record) => record.state === 'published',
+    )
+    await select('发布方式', '更新原作品')
+    await select(
+      '原作品',
+      `${originalRecord.externalId} · ${originalRecord.snapshot.metadata.title}`,
+    )
+    await click('更新原作品…')
+    await waitFor('document.querySelector("[role=dialog]")', 'update confirmation')
+    assert.ok(
+      await evaluate(
+        'document.querySelector("[role=dialog]").textContent.includes("https://www.bilibili.com/video/BV1xx411c7mD")',
+      ),
+    )
+    assert.equal(readFileSync(join(root, 'calls'), 'utf8').trim().split('\n').length, 1)
+    await key('Escape')
+    await waitFor('!document.querySelector("[role=dialog]")', 'update cancel')
+    assert.equal(await evaluate('document.activeElement.textContent.trim()'), '更新原作品…')
+    await click('更新原作品…')
+    for (const theme of ['light', 'dark']) {
+      await evaluate(`document.documentElement.classList.toggle('dark', ${theme === 'dark'})`)
+      for (const width of [1440, 1024]) {
+        window.setSize(width, 900)
+        await screenshot(`bilibili-update-${theme}-${width}.png`, '[role=dialog]')
+        assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'))
+      }
+      await key('Tab')
+      assert.ok(
+        await evaluate('document.querySelector("[role=dialog]").contains(document.activeElement)'),
+      )
+    }
+    window.webContents.setZoomFactor(2)
+    await screenshot('bilibili-update-200percent.png', '[role=dialog]')
+    window.webContents.setZoomFactor(1)
+    window.setSize(1440, 1100)
+    writeFileSync(join(root, 'mode'), '')
+    await click('确认替换并提交审核')
+    await waitFor(
+      'document.querySelector("[data-bilibili-publishing] > [data-bilibili-submission=reviewing]")',
+      'update reviewing',
+    )
+    const updateRecord = (await call('bilibiliSubmissions', project.id)).find(
+      (record) => record.snapshot.updateTarget,
+    )
+    assert.equal(updateRecord.externalId, originalRecord.externalId)
+    assert.equal(updateRecord.uploadedCid, '200')
+    const oldStatus = await evaluate(
+      `window.electronAPI.invoke('workflow:bilibiliRefresh', ${JSON.stringify(project.id)}, ${JSON.stringify(updateRecord.id)})`,
+    )
+    assert.equal(oldStatus.success, true)
+    assert.equal(
+      oldStatus.data.state,
+      'reviewing',
+      'Old public content cannot verify the update as published',
+    )
+    writeFileSync(join(root, 'mode'), 'new-content')
+    assert.equal((await call('bilibiliRefresh', project.id, updateRecord.id)).state, 'published')
+    await select('发布方式', '创建新作品')
     await evaluate('document.querySelector("input[value=douyin]").click()')
     await waitFor(
       '!document.querySelector("[data-bilibili-publishing]")',
@@ -390,7 +459,7 @@ app.whenReady().then(async () => {
     await saveAndApprove()
     await click('一键发布到 B 站')
     await waitFor(
-      'document.querySelector("[data-bilibili-submission=unknown]")',
+      'document.querySelector("[data-bilibili-publishing] > [data-bilibili-submission=unknown]")',
       'network outcome unknown',
     )
     await click('确认平台没有此稿件…')
@@ -398,14 +467,82 @@ app.whenReady().then(async () => {
     await key('Escape')
     await waitFor('!document.querySelector("[role=dialog]")', 'Escape closes dialog')
     assert.equal(await evaluate('document.activeElement.textContent.trim()'), '一键发布到 B 站')
-    assert.ok(await evaluate('document.querySelector("[data-bilibili-submission=unknown]")'))
+    assert.ok(
+      await evaluate(
+        'document.querySelector("[data-bilibili-publishing] > [data-bilibili-submission=unknown]")',
+      ),
+    )
     await click('确认平台没有此稿件…')
     await click('已核查，确认没有稿件')
     await waitFor(
-      'document.querySelector("[data-bilibili-submission=failed]")',
+      'document.querySelector("[data-bilibili-publishing] > [data-bilibili-submission=failed]")',
       'explicit acknowledgement permits retry',
     )
-    assert.equal((await call('bilibiliSubmissions', project.id)).length, 2)
+    assert.equal((await call('bilibiliSubmissions', project.id)).length, 3)
+    assert.equal(
+      await evaluate(
+        '[...document.querySelectorAll("[data-bilibili-submission]")].filter(item => item.checkVisibility()).length',
+      ),
+      1,
+      'Only the latest submission is expanded by default',
+    )
+    assert.equal(await evaluate('document.querySelector("[data-publishing-history]").open'), false)
+    assert.equal(await evaluate('document.querySelectorAll("[data-publishing-log]").length'), 2)
+    app.focus({ steal: true })
+    window.focus()
+    await delay(200)
+    await evaluate('document.querySelector("[data-publishing-history] > summary").focus()')
+    await waitFor(
+      'document.activeElement.matches("[data-publishing-history] > summary")',
+      'history receives keyboard focus',
+    )
+    await key('Enter', true)
+    assert.equal(await evaluate('document.querySelector("[data-publishing-history]").open'), true)
+    assert.equal(
+      await evaluate(
+        '[...document.querySelectorAll("[data-bilibili-submission]")].filter(item => item.checkVisibility()).length',
+      ),
+      1,
+      'Opening history reveals compact log rows',
+    )
+    for (const theme of ['light', 'dark']) {
+      await evaluate(`document.documentElement.classList.toggle('dark', ${theme === 'dark'})`)
+      for (const width of [1440, 1024]) {
+        window.setSize(width, 1100)
+        await screenshot(`publishing-history-${theme}-${width}.png`, '[data-publishing-history]')
+        assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'))
+      }
+    }
+    window.webContents.setZoomFactor(2)
+    await screenshot('publishing-history-200percent.png', '[data-publishing-history]')
+    assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'))
+    window.webContents.setZoomFactor(1)
+    window.setSize(1440, 1100)
+    await evaluate('document.querySelector("[data-publishing-log] > summary").focus()')
+    await key('Space')
+    assert.equal(await evaluate('document.querySelector("[data-publishing-log]").open'), true)
+    assert.equal(
+      await evaluate('document.activeElement.matches("[data-publishing-log] > summary")'),
+      true,
+    )
+    assert.ok(
+      await evaluate(
+        'document.querySelector("[data-publishing-log] button").getClientRects().length > 0',
+      ),
+    )
+    const historicalOpens = opened.length
+    await evaluate('document.querySelector("[data-publishing-log] button").click()')
+    for (let attempt = 0; attempt < 50 && opened.length === historicalOpens; attempt++)
+      await delay(50)
+    assert.equal(opened.length, historicalOpens + 1)
+    assert.equal(opened.at(-1), originalRecord.url)
+    assert.equal((await call('bilibiliSubmissions', project.id)).length, 3)
+    await key('Enter', true)
+    await evaluate('document.querySelector("[data-publishing-history] > summary").focus()')
+    await key('Space')
+    assert.equal(await evaluate('document.querySelector("[data-publishing-history]").open'), false)
+    assert.equal((await call('bilibiliSubmissions', project.id)).length, 3)
+    await screenshot('publishing-latest-only.png', '[data-bilibili-submission]')
     await click('管理 B 站账号')
     await click('解除绑定账号 456')
     await click('保留绑定')
@@ -469,17 +606,22 @@ app.whenReady().then(async () => {
     await saveAndApprove()
     writeFileSync(join(root, 'mode'), '')
     await click('一键发布到 抖音')
-    await waitFor('document.querySelector("[data-douyin-submission=reviewing]")', 'douyin receipt')
+    await waitFor(
+      'document.querySelector("[data-douyin-publishing] > [data-douyin-submission=reviewing]")',
+      'douyin receipt',
+    )
     writeFileSync(join(root, 'mode'), 'private')
     await click('核查平台状态')
     await waitFor(
-      'document.querySelector("[data-douyin-submission=private]")',
+      'document.querySelector("[data-douyin-publishing] > [data-douyin-submission=private]")',
       'douyin private status',
     )
     assert.equal((await call('douyinSubmissions', project.id)).length, 1)
     assert.equal((await call('bilibiliAccounts')).accounts[0].uid, '123')
     await click('打开作品 7531234567890123456')
     assert.ok(opened.includes('https://www.douyin.com/video/7531234567890123456'))
+    assert.equal(await evaluate('document.querySelector("[data-publishing-history]")'), null)
+    assert.equal(await evaluate('document.querySelectorAll("[data-douyin-submission]").length'), 1)
     await screenshot('douyin-published-dark-1440.png', '[data-douyin-publishing]')
     for (const width of [1440, 1024]) {
       window.setSize(width, 1000)
@@ -490,9 +632,7 @@ app.whenReady().then(async () => {
     await screenshot('douyin-published-200percent.png', '[data-douyin-publishing]')
     assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'))
     window.webContents.setZoomFactor(1)
-    await evaluate(
-      `location.hash='/toolbox'`,
-    )
+    await evaluate(`location.hash='/toolbox'`)
     await waitFor(
       '[...document.querySelectorAll("button")].some(button => button.textContent.includes("管理工具") && !button.disabled)',
       'toolbox loaded',
@@ -527,7 +667,7 @@ app.whenReady().then(async () => {
       await waitFor('!document.querySelector("[role=dialog]")', 'toolbox Escape')
     }
     console.log(
-      'Publishing Electron UI: Bilibili and Douyin isolated accounts, QR login, switching, unlinking, keyboard, themes, viewports, zoom, circular translucent video preview, media cleanup, upload locking, receipts and network uncertainty passed',
+      'Publishing Electron UI: Bilibili and Douyin isolated accounts, QR login, switching, unlinking, keyboard, themes, viewports, zoom, circular translucent video preview, media cleanup, upload locking, original-work update confirmation and CID reconciliation, receipts and network uncertainty passed',
     )
     app.exit(0)
   } catch (error) {

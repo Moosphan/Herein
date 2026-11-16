@@ -73,6 +73,11 @@ app.whenReady().then(async () => {
       await evaluate('Number(document.querySelector("#publication-cover-frame").value)'),
       1,
     )
+    await wait('document.querySelector("[role=dialog] input[value=portrait]")', 'portrait frame preview option')
+    await evaluate('document.querySelector("[role=dialog] input[value=portrait]").click()')
+    const portraitAspect = await evaluate('(()=>{const box=document.querySelector("video[aria-label=封面选帧预览]").getBoundingClientRect();return box.width/box.height})()')
+    assert.ok(Math.abs(portraitAspect - 9 / 16) < 0.01)
+    await screenshot('frame-picker-portrait.png')
     for (const theme of ['light', 'dark']) {
       await evaluate(`document.documentElement.classList.toggle('dark', ${theme === 'dark'})`)
       for (const width of [1440, 1024]) {
@@ -134,6 +139,7 @@ app.whenReady().then(async () => {
     }
     let project = await selectFrame(119)
     const bili = project.stages.publish.payload.platforms.bilibili.cover
+    assert.deepEqual(nativeImage.createFromPath(join(root, bili.portraitFile.path)).getSize(), { width: 1080, height: 1920 })
     assert.equal(bili.frameSource.frame, 119)
     assert.equal(bili.frameSource.videoSha256, initial.stages.render.payload.file.sha256)
     for (const [file, height] of [
@@ -158,7 +164,7 @@ app.whenReady().then(async () => {
       'document.querySelector("[data-publication-cover]")?.getAttribute("aria-label")==="抖音投稿封面"',
       'douyin panel',
     )
-    assert.equal(await evaluate('document.querySelector("[data-cover-generate]")'), null)
+    assert.ok(await evaluate('document.querySelector("[data-cover-generate]")'))
     project = await selectFrame(0)
     const douyin = project.stages.publish.payload.platforms.douyin.cover
     assert.equal(douyin.platform, 'douyin')

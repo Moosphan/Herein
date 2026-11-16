@@ -16,9 +16,11 @@ import { nativeRenderFailure } from './remotion-repair'
 import {
   NATIVE_REMOTION_ENTRY,
   NATIVE_REMOTION_ENTRY_V1,
+  NATIVE_REMOTION_ENTRY_V2,
   remotionPackageDirectory,
   validateNativeSources,
 } from './remotion-native'
+import { NATIVE_CAPTIONS_FILE, NATIVE_CAPTIONS_SOURCE } from './remotion-captions'
 
 export const REMOTION_PUBLIC_FILE =
   /^[a-z0-9-]+\.(html|png|jpg|jpeg|webp|svg|wav|mp3|m4a|ogg|flac|mp4|woff|woff2|ttf|otf)$/
@@ -157,10 +159,20 @@ export async function renderRemotion(
 ) {
   signal.throwIfAborted()
   const entry = readFileSync(join(cwd, 'remotion.tsx'), 'utf8')
-  const native = entry === NATIVE_REMOTION_ENTRY || entry === NATIVE_REMOTION_ENTRY_V1
+  const native = [
+    NATIVE_REMOTION_ENTRY,
+    NATIVE_REMOTION_ENTRY_V2,
+    NATIVE_REMOTION_ENTRY_V1,
+  ].includes(entry)
   if (entry !== REMOTION_ENTRY && !native)
     throw new Error('冻结 Remotion 入口与应用可信模板不一致，请重新生成粗剪')
   if (native) {
+    if (
+      entry === NATIVE_REMOTION_ENTRY &&
+      (!existsSync(join(cwd, NATIVE_CAPTIONS_FILE)) ||
+        readFileSync(join(cwd, NATIVE_CAPTIONS_FILE), 'utf8') !== NATIVE_CAPTIONS_SOURCE)
+    )
+      throw new Error('冻结 Remotion 字幕接口与应用可信模板不一致，请重新生成视频')
     const settings = JSON.parse(readFileSync(join(cwd, 'composition.json'), 'utf8'))
     if (
       !Array.isArray(settings.sourceFiles) ||

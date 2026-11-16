@@ -93,6 +93,26 @@ test('frame covers extract the selected real frame, crop per platform, and prese
     )
     assert.equal(douyin.file.id, douyin.feedFile.id)
     const bili = await extract('bilibili', 1.1)
+    assert.ok(bili.portraitFile, 'Bilibili frame covers include a portrait file')
+    const portraitProbe = JSON.parse(
+      execFileSync(
+        runtime.ffprobePath,
+        [
+          '-v',
+          'error',
+          '-show_entries',
+          'stream=width,height',
+          '-of',
+          'json',
+          await files.verify(project.id, bili.portraitFile),
+        ],
+        { encoding: 'utf8' },
+      ),
+    )
+    assert.deepEqual(
+      [portraitProbe.streams[0].width, portraitProbe.streams[0].height],
+      [1080, 1920],
+    )
     assert.deepEqual(
       [bili.width, bili.height, bili.feedWidth, bili.feedHeight],
       [1600, 900, 1600, 1200],

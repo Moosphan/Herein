@@ -60,7 +60,12 @@ const changeNames: Record<string, string> = {
 function taskName(job: WorkflowJob) {
   if (job.operation?.action === 'regenerate-audio')
     return job.operation.feedback ? '按修改意见重新生成配音' : '重新生成配音片段'
-  if (job.operation?.action === 'generate-cover') return '生成 B 站双比例封面'
+  if (job.operation?.action === 'generate-cover')
+    return job.operation.platform === 'douyin'
+      ? '生成抖音竖版封面'
+      : job.operation.includePortrait
+        ? '生成 B 站横竖封面套图'
+        : '生成 B 站双比例封面'
   if (job.operation?.action === 'accept-illustration') return '接受原创示意图降级'
   if (job.operation?.action === 'reuse-roughcut') return '取消修改计划并沿用视频'
   if (job.operation?.action === 'reuse-audio') return '沿用并审核分段配音'

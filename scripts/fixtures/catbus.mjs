@@ -49,6 +49,36 @@ else if (resource === 'auth') {
     { id: '1', name: '父分区', parent_id: null },
     { id: '17', name: '测试分区', parent_id: '1' },
   ]
+else if (action === 'get' && process.execArgv.some((value) => value.includes('update-'))) {
+  const api = await import('../platforms/bilibili/web/api.js')
+  data = await api.hereinPrepareUpdate({
+    mid: uid,
+    info: async () => ({
+      bvid: itemId,
+      aid: 12345,
+      owner: { mid: uid },
+      pages: [{ cid: mode === 'new-content' ? 200 : 100 }],
+    }),
+    get: async () => ({
+      archive: {
+        aid: 12345,
+        state: mode.endsWith('-review') ? -1 : mode.endsWith('-rejected') ? -2 : 0,
+      },
+      videos: [
+        {
+          cid: mode === 'new-content' ? 200 : 100,
+          filename: mode.startsWith('same-cid-new-file') ? 'new.mp4' : 'old.mp4',
+          status: mode.endsWith('missing-status')
+            ? undefined
+            : mode.endsWith('pending-part')
+              ? 1
+              : 0,
+        },
+      ],
+    }),
+  })
+} else if (action === 'get')
+  data = { bvid: itemId, owner: { mid: uid }, pages: [{ cid: mode === 'new-content' ? 200 : 100 }] }
 else if (action === 'list')
   data =
     mode === 'missing'
@@ -80,7 +110,41 @@ else if (action === 'publish') {
       JSON.stringify(videoItem({}, '', options, '').item.common),
     )
   }
+  if (platform === 'bilibili' && process.execArgv.some((value) => value.includes('update-'))) {
+    const api = await import('../platforms/bilibili/web/api.js')
+    const b = {
+      mid: uid,
+      csrf: 'fixture',
+      info: async () => ({ bvid: itemId, aid: 12345, owner: { mid: uid }, pages: [{ cid: 100 }] }),
+      get: async () => ({
+        archive: { aid: 12345, mission_id: 99 },
+        videos: [{ cid: 100, status: 0 }],
+      }),
+      post: async (url, options) => {
+        if (!url.endsWith('/x/vu/web/edit')) throw new Error('Unexpected create')
+        fs.writeFileSync(path.join(root, 'update-body'), JSON.stringify(options.json))
+        return { bvid: itemId, aid: 12345 }
+      },
+    }
+    await api.hereinPrepareUpdate(b)
+    await api.submitArchive(b, {
+      videos: [{ filename: 'new.mp4', biz_id: 200 }],
+      title: args[args.indexOf('--title') + 1],
+      tid: 17,
+      tag: '技术',
+      private: false,
+    })
+  }
   if (mode === 'slow') await new Promise((resolve) => setTimeout(resolve, 900))
+  if (mode === 'update-21001') {
+    console.log(
+      JSON.stringify({
+        ok: false,
+        error: { code: 'UPSTREAM', message: '参数错误', detail: { code: 21001 } },
+      }),
+    )
+    process.exit(6)
+  }
   if (mode.startsWith('upstream-')) {
     console.log(
       JSON.stringify({

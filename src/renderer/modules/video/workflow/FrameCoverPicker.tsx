@@ -26,7 +26,10 @@ export function FrameCoverPicker({
   const [open, setOpen] = useState(false)
   const [info, setInfo] = useState<FrameInfo>()
   const [frame, setFrame] = useState(0)
-  const [ratio, setRatio] = useState('landscape')
+  const render = stageValue(project, 'render')
+  const [ratio, setRatio] = useState(
+    render && render.height > render.width ? 'portrait' : 'landscape',
+  )
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [ready, setReady] = useState(false)
@@ -35,7 +38,6 @@ export function FrameCoverPicker({
   const request = useRef<string>()
   const generation = useRef(0)
   const renderId = project.stages.render?.id
-  const render = stageValue(project, 'render')
   const identity = `${project.id}:${project.revision}:${renderId}:${platform}`
   const changeOpen = (value: boolean) => {
     if (!value) {
@@ -112,9 +114,11 @@ export function FrameCoverPicker({
   }
   const aspectRatio =
     platform === 'bilibili'
-      ? ratio === 'feed'
-        ? 4 / 3
-        : 16 / 9
+      ? ratio === 'portrait'
+        ? 9 / 16
+        : ratio === 'feed'
+          ? 4 / 3
+          : 16 / 9
       : info
         ? info.width / info.height
         : 9 / 16
@@ -167,6 +171,7 @@ export function FrameCoverPicker({
                 options={[
                   { value: 'landscape', label: '个人空间 16:9' },
                   { value: 'feed', label: '首页推荐 4:3' },
+                  { value: 'portrait', label: '竖版 9:16' },
                 ]}
               />
             )}
@@ -219,7 +224,7 @@ export function FrameCoverPicker({
             </div>
             <p className="workflow-muted">
               {platform === 'bilibili'
-                ? '同一帧居中裁切为 1600×900 和 1600×1200；请分别检查主体是否完整。'
+                ? '同一帧居中裁切为 1600×900、1600×1200 和 1080×1920；请分别检查主体是否完整。'
                 : `抖音保留原视频画幅 ${info.width}×${info.height}。`}{' '}
               PNG，每张不超过 4 MiB。
             </p>

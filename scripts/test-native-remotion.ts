@@ -266,3 +266,99 @@ test('native project uses React visuals directly and keeps narration and caption
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('a single-scene edit can configure and measure host captions through the frozen host API', () => {
+  const revised = {
+    ...sources,
+    files: [
+      sources.files[0],
+      {
+        name: 'scene-0.tsx',
+        content: `import React from 'react';
+import {useHostCaption} from './host-captions';
+export default function Scene() {
+  const {bounds} = useHostCaption('one', {containerStyle: {paddingBottom: 20}});
+  return <div style={{height: bounds?.top ?? 1600}}>Generated files</div>;
+}`,
+      },
+    ],
+  }
+  native().assertNativeRevisionScope(sources, revised, ['one'], 'one')
+  assert.deepEqual(
+    native().validateNativeSources(revised, ['one'], { react: '18.3.1', remotion: '4.0.541' }),
+    revised,
+  )
+  const directory = mkdtempSync(join(tmpdir(), 'native-host-caption-'))
+  try {
+    native().writeNativeComposition(
+      directory,
+      revised,
+      {
+        duration: 2,
+        width: 1080,
+        height: 1920,
+        fps: 30,
+        scenes: [
+          {
+            id: 'one',
+            title: '第一镜',
+            text: '字幕',
+            start: 0,
+            duration: 2,
+            from: 0,
+            durationInFrames: 60,
+            module: 'scene-0.tsx',
+            motionEnabled: true,
+          },
+        ],
+        captions: [{ start: 0, duration: 2, text: '完整字幕。' }],
+        assets: [],
+      },
+      { react: '18.3.1', remotion: '4.0.541' },
+    )
+    assert.match(readFileSync(join(directory, 'host-captions.tsx'), 'utf8'), /useHostCaption/)
+    assert.match(readFileSync(join(directory, 'remotion.tsx'), 'utf8'), /HostCaptionProvider/)
+    assert.equal(readFileSync(join(directory, 'visuals.tsx'), 'utf8'), sources.files[0].content)
+    assert.match(
+      native().nativeCreationPrompt(
+        { stages: { storyboard: { payload: { scenes: [{ id: 'one' }] } }, brief: {}, copy: {} } },
+        { scenes: [], assets: [], captions: [], width: 1080, height: 1920, duration: 2, fps: 30 },
+        {},
+        sources,
+        '字幕下边缘固定在1900',
+        'one',
+      ),
+      /useHostCaption[\s\S]*bounds/,
+    )
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('frozen caption API tampering stops rendering before launching external tools', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'native-caption-integrity-'))
+  try {
+    native().writeNativeComposition(
+      directory,
+      sources,
+      {
+        duration: 2,
+        width: 1080,
+        height: 1920,
+        fps: 30,
+        scenes: [],
+        captions: [],
+        assets: [],
+      },
+      { react: '18.3.1', remotion: '4.0.541' },
+    )
+    writeFileSync(join(directory, 'host-captions.tsx'), 'export const modified = true;')
+    const { renderRemotion } = require('../src/main/services/video-workflow/remotion')
+    await assert.rejects(
+      renderRemotion({}, directory, new AbortController().signal, true, () => {}),
+      /字幕接口.*可信模板/,
+    )
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})

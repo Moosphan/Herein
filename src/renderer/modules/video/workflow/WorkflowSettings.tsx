@@ -22,7 +22,10 @@ export function WorkflowSettings({ open, onClose }: { open: boolean; onClose: ()
     setBusy(true)
     setError('')
     try {
-      await workflowCall('configure', runtime)
+      const updates = Object.fromEntries(
+        Object.keys(labels).map((key) => [key, runtime?.[key as keyof WorkflowRuntime] ?? '']),
+      )
+      await workflowCall('configure', updates)
       if (check) setChecks(await workflowCall('checkRuntime'))
       else onClose()
     } catch (failure) {
@@ -31,10 +34,10 @@ export function WorkflowSettings({ open, onClose }: { open: boolean; onClose: ()
       setBusy(false)
     }
   }
-  const labels: Record<keyof WorkflowRuntime, string> = {
+  const labels: Partial<Record<keyof WorkflowRuntime, string>> = {
     nodePath: 'Node.js（Catbus 需 22.22.2+ / 24.15+ / 26+）',
     catbusPath: 'Catbus CLI 0.2.1（可执行文件或 dist/cli/main.js）',
-    codexPath: 'Codex CLI',
+    codexPath: 'Codex CLI（内容创作 / GPT Image2 原生图片生成）',
     claudePath: 'Claude Code CLI',
     deepseekPath: 'DeepSeek Harness（dsh 可执行文件或 lib/bin.js）',
     hyperframesPath: 'HyperFrames 0.8.181（可执行文件或 bin/hyperframes.mjs）',
@@ -42,8 +45,6 @@ export function WorkflowSettings({ open, onClose }: { open: boolean; onClose: ()
     remotionBrowserPath: 'Remotion 浏览器（可选，Chrome / Chromium 可执行文件）',
     ffmpegPath: 'FFmpeg',
     ffprobePath: 'FFprobe',
-    bunPath: 'Bun（Image2 图片生成运行时）',
-    image2Path: 'Image2（baoyu-imagine/scripts/main.ts）',
   }
   return (
     <Dialog.Root
@@ -97,8 +98,8 @@ export function WorkflowSettings({ open, onClose }: { open: boolean; onClose: ()
               可在各阶段“本地执行器”切换，选择会在本机保留。
             </p>
             <p className="workflow-muted">
-              Image2 使用 gpt-image-2，复用本机 baoyu-imagine 的 API 配置和密钥，可能产生图片 API
-              费用。 未配置时可使用 AI 代码生成封面，无需图片 API。
+              GPT Image2 通过 Codex CLI 的内置 image_generation 工具生成封面，复用 Codex
+              当前登录。ChatGPT 登录使用 Codex 额度，API key 登录按对应 API 用量计费。
             </p>
             {error && (
               <p role="alert" className="workflow-error">

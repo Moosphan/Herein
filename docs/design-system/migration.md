@@ -305,6 +305,8 @@
 
 2026-11-15 · 多段配音修改追加。用户要求同时修改多个片段，原意见弹窗增加片段多选，使用既有 Button 的选中变体与 aria-pressed，沿用 VIDEO-WORKFLOW-001 的工作流控件适配、负责人和退出里程碑。AudioPanel 按目标片段显示等待或执行状态；其他片段可继续提交。服务按项目顺序处理任务，在相同前置来源下基于最新完整音轨累积替换，排队任务可单独取消，失败保留此前成功版本。完整配音生成及其他阶段沿用原任务约束。受影响范围还包括工作流任务仓库、共享片段目标合同和 ExecutionLog，验证见 [配音修改意见验证](audio-feedback-verification.md)。
 
+2026-11-15 · 原生 Remotion 宿主字幕布局接口：关联 #14，按用户第一镜修改计划补齐分镜级 CSS 覆盖与真实字幕边界读取。宿主冻结接口随工程导出，原 V1/V2 工程继续按冻结入口输出，单镜源码范围校验贯通。应用工作台沿用 VIDEO-WORKFLOW-001；本次实现位于视频生成宿主。验证见 [原生 Remotion 验证](native-remotion-verification.md)。
+
 
 ## Herein 项目更名 · 2026-11-15
 
@@ -313,3 +315,46 @@
 主目录为 `/Users/dorck/self-projects/Herein`，origin 为 `git@github.com:Moosphan/Herein.git`。主目录旧名称以兼容符号链接支持现有 Codex 会话，两个关联工作树的 Git 指针已修复。应用检测既有 my-dashboard / MyDashboard 数据库并沿用对应数据目录，安装身份和账号标识继续兼容既有安装。Codex 项目侧栏标签暂未同步，原生 UI 自动化服务启动失败，当前通过兼容链接访问。
 
 验证通过 13 项应用身份、历史数据路径、草稿安装包上传和日常运行测试。Electron 真实启动验证 Herein 应用名、页面标题、侧栏与 Logo，单实例、正常重启和草稿恢复通过。文件路由回归验证模块切换、通知、重载、键盘、明暗主题、1440/1024 与 200% 缩放，检查浅色 1440 和深色 1024 截图。设计检查、设计构建、应用构建及 diff 检查通过，修改路径 ESLint 为 0 错误，设置页已有两项未使用变量警告。日常应用已从新主目录启动，源码指纹匹配，打开的数据库仍为既有 my-dashboard 数据库。安装包文件名匹配通过测试，本轮未构建各平台安装包。
+
+## 双平台竖版封面 · 2026-11-15
+
+关联 #17，用户确认 B 站与抖音均支持竖版制作。PublicationCoverPanel、FrameCoverPicker、ExecutionLog 复用 VIDEO-WORKFLOW-001 的现有 Button、VoiceRadioGroup、WorkflowDialog 与封面布局。B 站规格选择和三比例预览、抖音 AI 入口及任务标签沿用当前主题和信息顺序，负责人为视频工作流维护者，退出里程碑为视频工作流 HeroUI 3.2.6 生产迁移。历史双比例候选继续按原字段读取，新 portraitFile 随发布版本保存并参与文件与像素校验。验证见 [封面验证](video-workflow-publication-cover-verification.md)。
+
+
+## Codex 原生图片生成 · 2026-11-15
+
+用户要求工作台复用已配置的 Codex CLI 与现有登录。PublicationCoverPanel 使用“GPT Image2（Codex）”及对应额度说明，WorkflowSettings 移除已停用的 Bun 和 Image2 脚本输入，保存仅提交可见字段，兼容历史配置中失效的旧路径。沿用 VIDEO-WORKFLOW-001 的 Voice 控件、WorkflowDialog、主题、信息顺序和动作位置，负责人及退出里程碑保持为视频工作流维护者和 HeroUI 3.2.6 生产迁移。
+
+受控 Electron 验证覆盖原生参数、两平台生成、失败与取消保留、历史兼容、导出、执行环境保存、明暗主题、1440/1024、200% 及键盘焦点。真实已配置 Codex CLI 完成用户 KSP 项目的两张图片生成，发布 v2 待审核。完整证据见 [封面验证](video-workflow-publication-cover-verification.md)。
+
+
+## 视频实际配音来源 · 2026-11-16
+
+关联 #14。用户指出配音 v14 已纠音，修改后的视频仍含第 5、7 段旧发音。StageWorkspace 审核栏改为读取视频冻结 sourceAudio，原制作按钮在适用时显示“应用当前配音 vN”，沿用 VIDEO-WORKFLOW-001 的 Button、Voice 控件、右栏信息顺序和现有动作位置。负责人为视频工作流维护者，退出里程碑仍为该模块 HeroUI 3.2.6 生产迁移。
+
+实际 Electron 验证旧来源显示、原按钮键盘触发更新、待审核状态、浅深色、1440/1024、200% 与焦点返回。截图目录 `/var/folders/tp/lp03pbbn6wb275zsvn3lfrq00000gn/T/production-audio-provenance-ui-llyXr3`，已检查浅色 1440 与深色 1024。技术回归和用户实际 v3 音轨证据见 [原生 Remotion 验证](native-remotion-verification.md)。
+
+## #18 发布资料适配当前成片 · 2026-11-16
+
+用户确认保留标题、简介、标签，显式确认复用旧封面，保存新发布版本后重新人工审核。PublicationCoverPanel 在既有历史动作区增加复用入口及确认弹窗，StageWorkspace 沿用底部保存位置并标明当前成片等待保存。复用 VIDEO-WORKFLOW-001 的 Button、WorkflowDialog、主题和布局，负责人为视频工作流维护者，退出里程碑为该模块 HeroUI 3.2.6 生产迁移。原封面及选帧来源字段保留，新增确认历史由服务与文件校验共同验证。业务、键盘、主题及隔离 Electron 证据见 [封面验证](video-workflow-publication-cover-verification.md)。
+
+### 2026-11-16 · #19 B 站原作品更新
+
+- 发布区增加创建与更新方式、同项目同账号原作品选择和显式替换确认。沿用 VIDEO-WORKFLOW-001 的 VoiceSelect、Button、WorkflowDialog 控件例外与既有动作位置。
+- 更新保存原 BV 链接，冻结已审核成片和资料来源。平台提交、审核、内容回执核查与未知结果恢复均保留独立记录。
+- 实测 Electron 临时用户目录中的确认、取消、Escape、焦点返回、键盘 Select、明暗主题、1440/1024 宽度与 200% 缩放。平台写入使用受控本地请求。
+
+
+### 2026-11-16 · #19 原作品更新参数错误复核
+
+修正已有分P编辑请求，保留原分P CID 并限制视频条目字段。持久上传 filename 与 CID，通过创作中心只读查询核实本次内容及审核状态，支持原分P CID 保持不变的替换。平台 21001 明确拒绝保存为失败，历史对应错误记录可只读恢复，公开旧内容未证明更新时使用中性核查提示。沿用现有发布记录展示与操作，验收记录见 `video-workflow-bilibili-update-verification.md`。
+
+
+### 2026-11-16 · #19 B 站编辑参数二次核验
+
+11:06 真实重试仍被 21001 拒绝。当前 B 站网页源码和实际创作中心响应确认，分类与二创设置需将对象映射为数值，并携带网页编辑标志。替换视频沿上传事件的新 filename 与 CID 提交，上一轮沿用原 CID 的判断和测试断言已更正。真实响应的本地拦截构造验证通过，外部网络写请求为零。详细证据见 `video-workflow-bilibili-update-verification.md`。
+
+
+### 2026-11-16 · #19 发布记录收纳
+
+用户截图要求默认显示最新投稿，其他尝试以日志呈现。PlatformPublishingPanel 复用 VIDEO-WORKFLOW-001 的现有 Button、工作流主题与原生 details 日志样式，最新记录沿用原信息顺序及操作，旧记录收进可展开的紧凑日志摘要。使用服务已有创建倒序和持久记录，详情保留原操作。责任为视频工作流维护者，退出里程碑为该模块 HeroUI 3.2.6 生产迁移。验证见 `video-workflow-bilibili-update-verification.md`。

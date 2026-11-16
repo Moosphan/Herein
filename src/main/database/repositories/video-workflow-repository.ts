@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3'
-import { productionRevision, productionSourceProject } from '../../../shared/video-production'
+import { productionRevision, productionEditProject } from '../../../shared/video-production'
 import { compareFinalRender } from '../../../shared/video-render-comparison'
 import { createHash, randomUUID } from 'node:crypto'
 import {
@@ -20,7 +20,6 @@ import {
   type VideoStyleTemplate,
   stageValue,
   videoFrame,
-  renderSourceProject,
   validateMotionPlan,
   type WorkflowOperation,
   type StagePayloads,
@@ -236,7 +235,7 @@ export class VideoWorkflowRepository {
         json_object(${VIDEO_STAGES.map((stage) => `'${stage}',(SELECT status FROM video_workflow_revisions WHERE project_id=p.id AND stage='${stage}' ORDER BY rowid DESC LIMIT 1)`).join(',')}) AS statuses,
         EXISTS(SELECT 1 FROM video_workflow_jobs j WHERE j.project_id=p.id AND j.state='running') AS running,
         (SELECT json_object('id',id,'imported',json_extract(payload,'$.imported') IS NOT NULL,'width',json_extract(payload,'$.width'),'height',json_extract(payload,'$.height'),'duration',json_extract(payload,'$.duration'),'cover',json_extract(payload,'$.cover')) FROM video_workflow_revisions WHERE project_id=p.id AND stage='render' ORDER BY rowid DESC LIMIT 1) AS render,
-        (SELECT json_object('file',json_extract(payload,'$.platforms.bilibili.cover.file'),'sourceRenderId',json_extract(payload,'$.platforms.bilibili.cover.sourceRenderId')) FROM video_workflow_revisions WHERE project_id=p.id AND stage='publish' ORDER BY rowid DESC LIMIT 1) AS publication_cover,
+        (SELECT json_object('file',json_extract(payload,'$.platforms.bilibili.cover.file'),'sourceRenderId',COALESCE(json_extract(payload,'$.platforms.bilibili.cover.reuseConfirmations[#-1].renderId'),json_extract(payload,'$.platforms.bilibili.cover.sourceRenderId'))) FROM video_workflow_revisions WHERE project_id=p.id AND stage='publish' ORDER BY rowid DESC LIMIT 1) AS publication_cover,
         (SELECT json_extract(payload,'$.cover') FROM video_workflow_revisions WHERE project_id=p.id AND stage='roughcut' ORDER BY rowid DESC LIMIT 1) AS rough_cover,
         (SELECT json_extract(payload,'$.duration') FROM video_workflow_revisions WHERE project_id=p.id AND stage='audio' ORDER BY rowid DESC LIMIT 1) AS audio_duration,
         (SELECT json_object('text',json_extract(payload,'$.text'),'duration',json_extract(payload,'$.duration'),'format',json_extract(payload,'$.format')) FROM video_workflow_revisions WHERE project_id=p.id AND stage='brief' ORDER BY rowid DESC LIMIT 1) AS brief,
@@ -952,9 +951,7 @@ export class VideoWorkflowRepository {
     const job = this.job(id)
     if (!job || job.state !== 'running' || job.kind !== 'motion-plan')
       throw new Error('修改计划任务已结束')
-    const project = renderSourceProject(
-      productionSourceProject(this.current(job.projectId, job.expectedRevision)),
-    )
+    const project = productionEditProject(this.current(job.projectId, job.expectedRevision))
     const scenes = stageValue(project, 'storyboard')!.scenes.map((scene) => ({
       id: scene.id,
       duration: stageValue(project, 'audio')!

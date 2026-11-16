@@ -6,6 +6,7 @@ import {
   BILIBILI_ACTIVE,
   BILIBILI_STATE_LABELS,
   type BilibiliCategory,
+  type BilibiliPublishRequest,
   type BilibiliConnection,
   type BilibiliSubmission,
 } from '@shared/bilibili-publishing'
@@ -84,6 +85,29 @@ export function PlatformPublishingPanel({
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState('')
+  const [mode, setMode] = useState('create')
+  const [targetId, setTargetId] = useState('')
+  const [updateConfirmation, setUpdateConfirmation] = useState<{
+    request: BilibiliPublishRequest
+    original: BilibiliSubmission
+    title: string
+    renderVersion?: number
+    publishVersion?: number
+  } | null>(null)
+  const targets = records.filter(
+    (record, index) =>
+      ['published', 'private'].includes(record.state) &&
+      record.externalId &&
+      record.url &&
+      record.snapshot.accountUid === connection.uid &&
+      records.findIndex(
+        (candidate) =>
+          candidate.externalId === record.externalId &&
+          ['published', 'private'].includes(candidate.state),
+      ) === index,
+  )
+  const target = targets.find((record) => record.id === targetId)
+  const updating = platform === 'bilibili' && mode === 'update'
   const [bvs, setBvs] = useState<Record<string, string>>({})
   const [confirmation, setConfirmation] = useState<BilibiliSubmission | null>(null)
   const lock = useRef(false),
@@ -194,6 +218,126 @@ export function PlatformPublishingPanel({
         }),
       '已创建投稿任务；上传与提交结果将在下方更新。',
     )
+  const renderRecord = (record: BilibiliSubmission) => (
+    <div
+      key={record.id}
+      className="workflow-divider workflow-section"
+      data-bilibili-submission={platform === 'bilibili' ? record.state : undefined}
+      data-douyin-submission={platform === 'douyin' ? record.state : undefined}
+    >
+      <div>
+        <strong className="text-body-sm">{BILIBILI_STATE_LABELS[record.state]}</strong>
+        <p className="workflow-muted" role="status">
+          {record.phase}
+        </p>
+        <p className="workflow-muted break-words">
+          {new Date(record.createdAt).toLocaleString()} · {identity} {record.snapshot.accountUid} ·{' '}
+          {record.snapshot.visibility === 'public' ? '公开' : '私密'}
+        </p>
+        <p className="workflow-muted">{record.snapshot.metadata.title}</p>
+        {record.snapshot.updateTarget && (
+          <p className="workflow-muted">更新原作品 · {record.snapshot.updateTarget.externalId}</p>
+        )}
+        {record.scheduledAt && (
+          <p className="workflow-muted">
+            计划开始：{new Date(record.scheduledAt).toLocaleString()} · 本机时区{' '}
+            {Intl.DateTimeFormat().resolvedOptions().timeZone}
+          </p>
+        )}
+      </div>
+      {record.error && <p className="workflow-error">{record.error}</p>}
+      {record.url && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => void perform(() => call('Open', project.id, record.id))}
+        >
+          打开作品 {record.externalId}
+        </Button>
+      )}
+      {record.state === 'scheduled' ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy}
+          onClick={() =>
+            void perform(async () => {
+              const result = await call<BilibiliSubmission>('Cancel', project.id, record.id)
+              if (result.state !== 'cancelled')
+                throw new Error(
+                  `计划已开始处理，当前为“${BILIBILI_STATE_LABELS[result.state]}”；请核查下方记录及平台结果，尚不能确认取消。`,
+                )
+            }, '已取消定时发布')
+          }
+        >
+          取消定时发布
+        </Button>
+      ) : BILIBILI_ACTIVE.includes(record.state) ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy}
+          onClick={() => void perform(() => call('Cancel', project.id, record.id))}
+        >
+          停止本地投稿任务
+        </Button>
+      ) : (
+        <>
+          {['unknown', 'risk_control'].includes(record.state) && !record.externalId && (
+            <VoiceInput
+              label={`已提交的 ${item}或作品链接（用于核查）`}
+              value={bvs[record.id] ?? ''}
+              onChange={(event) =>
+                setBvs((current) => ({ ...current, [record.id]: event.target.value }))
+              }
+            />
+          )}
+          {(record.externalId || bvs[record.id]) && (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={
+                busy ||
+                active ||
+                connection.state === 'connecting' ||
+                connection.state === 'checking'
+              }
+              onClick={() =>
+                void perform(
+                  () => call('Refresh', project.id, record.id, bvs[record.id]),
+                  '已核查平台稿件状态',
+                )
+              }
+            >
+              核查平台状态
+            </Button>
+          )}
+          {['unknown', 'risk_control'].includes(record.state) && (
+            <>
+              <p className="workflow-muted">
+                {record.snapshot.updateTarget ? (
+                  '请核查本次更新是否已生效，结果待确认时保留原作品。'
+                ) : (
+                  <>
+                    先检查{label}创作中心。若稿件已存在，请填写{item}
+                    核查，提交结果未确认时保留现有记录。
+                  </>
+                )}
+              </p>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy || active}
+                onClick={() => setConfirmation(record)}
+              >
+                {record.snapshot.updateTarget ? '确认此次更新未生效…' : '确认平台没有此稿件…'}
+              </Button>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  )
   return (
     <section
       className="workflow-section workflow-divider"
@@ -322,46 +466,100 @@ export function PlatformPublishingPanel({
             ? '正式成片与发布资料审核通过后才能投稿。'
             : `将上传当前审核版本；平台提交成功后仍需等待${label}审核。`}
       </p>
+      {platform === 'bilibili' && (
+        <fieldset disabled={busy || active || disabled} className="workflow-section min-w-0">
+          <VoiceSelect
+            label="发布方式"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'create', label: '创建新作品' },
+              { value: 'update', label: '更新原作品' },
+            ]}
+          />
+          {mode === 'update' && (
+            <VoiceSelect
+              label="原作品"
+              value={targetId}
+              onChange={setTargetId}
+              placeholder="选择本项目同账号已通过的作品"
+              options={targets.map((record) => ({
+                value: record.id,
+                label: `${record.externalId} · ${record.snapshot.metadata.title}`,
+              }))}
+            />
+          )}
+          {mode === 'update' && targets.length === 0 && (
+            <p className="workflow-muted">当前账号暂无本项目已通过的作品，请先核查已有投稿状态。</p>
+          )}
+        </fieldset>
+      )}
       <Button
         ref={publishButton}
         size="sm"
-        disabled={cannotPublish || hasPlan}
-        onClick={() => void publish()}
-      >
-        {active ? '正在上传与提交…' : `一键发布到 ${label}`}
-      </Button>
-      <ScheduledPublishing
-        label={label}
-        accountUid={connection.uid}
-        title={stageValue(project, 'publish')?.platforms[platform].title ?? project.title}
-        renderVersion={project.stages.render?.version}
-        publishVersion={project.stages.publish?.version}
-        disabled={cannotPublish}
-        busy={busy}
-        hasPlan={hasPlan}
-        error={error}
-        onSchedule={(scheduleAt) =>
-          perform(async () => {
-            const record = await call<BilibiliSubmission>('Publish', {
-              projectId: project.id,
-              expectedRevision: project.revision,
-              requestId: crypto.randomUUID(),
-              accountUid: connection.uid,
-              category,
-              visibility,
-              copyright,
-              source,
-              scheduleAt,
+        disabled={cannotPublish || hasPlan || (updating && !target)}
+        onClick={() => {
+          if (platform === 'bilibili' && mode === 'update' && target) {
+            setUpdateConfirmation({
+              original: target,
+              title: stageValue(project, 'publish')!.platforms.bilibili.title,
+              renderVersion: project.stages.render?.version,
+              publishVersion: project.stages.publish?.version,
+              request: {
+                projectId: project.id,
+                expectedRevision: project.revision,
+                requestId: crypto.randomUUID(),
+                accountUid: connection.uid!,
+                category,
+                visibility: visibility as 'public' | 'private',
+                copyright: copyright as 'original' | 'repost',
+                source,
+                updateSubmissionId: target.id,
+              },
             })
-            if (record.state !== 'scheduled')
-              throw new Error(
-                `未创建定时计划：该版本已有“${BILIBILI_STATE_LABELS[record.state]}”记录，请核对下方发布记录。`,
-              )
-            if (record.scheduledAt !== scheduleAt)
-              throw new Error('该版本已有其他时间的定时计划，请先取消原计划后重新安排。')
-          }, '定时发布计划已保存，到点自动核对并投稿。')
-        }
-      />
+          } else void publish()
+        }}
+      >
+        {active
+          ? '正在上传与提交…'
+          : mode === 'update' && platform === 'bilibili'
+            ? '更新原作品…'
+            : `一键发布到 ${label}`}
+      </Button>
+      {!updating && (
+        <ScheduledPublishing
+          label={label}
+          accountUid={connection.uid}
+          title={stageValue(project, 'publish')?.platforms[platform].title ?? project.title}
+          renderVersion={project.stages.render?.version}
+          publishVersion={project.stages.publish?.version}
+          disabled={cannotPublish}
+          busy={busy}
+          hasPlan={hasPlan}
+          error={error}
+          onSchedule={(scheduleAt) =>
+            perform(async () => {
+              const record = await call<BilibiliSubmission>('Publish', {
+                projectId: project.id,
+                expectedRevision: project.revision,
+                requestId: crypto.randomUUID(),
+                accountUid: connection.uid,
+                category,
+                visibility,
+                copyright,
+                source,
+                scheduleAt,
+              })
+              if (record.state !== 'scheduled')
+                throw new Error(
+                  `未创建定时计划：该版本已有“${BILIBILI_STATE_LABELS[record.state]}”记录，请核对下方发布记录。`,
+                )
+              if (record.scheduledAt !== scheduleAt)
+                throw new Error('该版本已有其他时间的定时计划，请先取消原计划后重新安排。')
+            }, '定时发布计划已保存，到点自动核对并投稿。')
+          }
+        />
+      )}
       {error && (
         <p className="workflow-error" role="alert">
           {error}
@@ -372,125 +570,82 @@ export function PlatformPublishingPanel({
           {notice}
         </p>
       )}
-      {records.map((record) => (
-        <div
-          key={record.id}
-          className="workflow-divider workflow-section"
-          data-bilibili-submission={platform === 'bilibili' ? record.state : undefined}
-          data-douyin-submission={platform === 'douyin' ? record.state : undefined}
-        >
-          <div>
-            <strong className="text-body-sm">{BILIBILI_STATE_LABELS[record.state]}</strong>
-            <p className="workflow-muted" role="status">
-              {record.phase}
-            </p>
-            <p className="workflow-muted break-words">
-              {new Date(record.createdAt).toLocaleString()} · {identity}{' '}
-              {record.snapshot.accountUid} ·{' '}
-              {record.snapshot.visibility === 'public' ? '公开' : '私密'}
-            </p>
-            <p className="workflow-muted">{record.snapshot.metadata.title}</p>
-            {record.scheduledAt && (
-              <p className="workflow-muted">
-                计划开始：{new Date(record.scheduledAt).toLocaleString()} · 本机时区{' '}
-                {Intl.DateTimeFormat().resolvedOptions().timeZone}
-              </p>
-            )}
-          </div>
-          {record.error && <p className="workflow-error">{record.error}</p>}
-          {record.url && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void perform(() => call('Open', project.id, record.id))}
-            >
-              打开作品 {record.externalId}
+      {records[0] && renderRecord(records[0])}
+      {records.length > 1 && (
+        <details className="workflow-divider workflow-job-details" data-publishing-history>
+          <summary>发布日志（{records.length - 1} 条）</summary>
+          <ol aria-label={`${label}发布日志`}>
+            {records.slice(1).map((record) => (
+              <li key={record.id}>
+                <details className="workflow-job-details" data-publishing-log={record.id}>
+                  <summary className="break-words">
+                    <time dateTime={record.createdAt}>
+                      {new Date(record.createdAt).toLocaleString()}
+                    </time>
+                    {' · '}
+                    {BILIBILI_STATE_LABELS[record.state]}
+                    {' · '}
+                    {record.snapshot.updateTarget ? '更新原作品' : '创建新作品'}
+                    {record.externalId && ` · ${record.externalId}`}
+                  </summary>
+                  {renderRecord(record)}
+                </details>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+      <WorkflowDialog
+        open={!!updateConfirmation}
+        onOpenChange={(open) => {
+          if (!open) setUpdateConfirmation(null)
+        }}
+        title="确认更新原作品"
+        description="确认后将替换原作品的视频、封面、标题、简介、标签和投稿设置，原作品链接保留。提交后需等待平台重新审核。当前支持单分P作品。"
+        returnFocus={publishButton}
+        footer={
+          <>
+            <Button variant="secondary" disabled={busy} onClick={() => setUpdateConfirmation(null)}>
+              取消
             </Button>
-          )}
-          {record.state === 'scheduled' ? (
             <Button
-              size="sm"
-              variant="secondary"
-              disabled={busy}
+              disabled={busy || cannotPublish}
               onClick={() =>
                 void perform(async () => {
-                  const result = await call<BilibiliSubmission>('Cancel', project.id, record.id)
-                  if (result.state !== 'cancelled')
-                    throw new Error(
-                      `计划已开始处理，当前为“${BILIBILI_STATE_LABELS[result.state]}”；请核查下方记录及平台结果，尚不能确认取消。`,
-                    )
-                }, '已取消定时发布')
+                  if (!updateConfirmation) return
+                  if (
+                    updateConfirmation.request.expectedRevision !== project.revision ||
+                    updateConfirmation.request.accountUid !== connection.uid
+                  )
+                    throw new Error('项目或账号已更新，请关闭弹窗并重新确认')
+                  await call('Publish', updateConfirmation.request)
+                  setUpdateConfirmation(null)
+                }, '已创建原作品更新任务，审核结果可在下方核查。')
               }
             >
-              取消定时发布
+              确认替换并提交审核
             </Button>
-          ) : BILIBILI_ACTIVE.includes(record.state) ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={busy}
-              onClick={() => void perform(() => call('Cancel', project.id, record.id))}
-            >
-              停止本地投稿任务
-            </Button>
-          ) : (
-            <>
-              {['unknown', 'risk_control'].includes(record.state) && !record.externalId && (
-                <VoiceInput
-                  label={`已提交的 ${item}或作品链接（用于核查）`}
-                  value={bvs[record.id] ?? ''}
-                  onChange={(event) =>
-                    setBvs((current) => ({ ...current, [record.id]: event.target.value }))
-                  }
-                />
-              )}
-              {(record.externalId || bvs[record.id]) && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={
-                    busy ||
-                    active ||
-                    connection.state === 'connecting' ||
-                    connection.state === 'checking'
-                  }
-                  onClick={() =>
-                    void perform(
-                      () => call('Refresh', project.id, record.id, bvs[record.id]),
-                      '已核查平台稿件状态',
-                    )
-                  }
-                >
-                  核查平台状态
-                </Button>
-              )}
-              {['unknown', 'risk_control'].includes(record.state) && (
-                <>
-                  <p className="workflow-muted">
-                    先检查{label}创作中心。若稿件已存在，请填写{item}
-                    核查；提交结果未确认时不会重复投稿。
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy || active}
-                    onClick={() => setConfirmation(record)}
-                  >
-                    确认平台没有此稿件…
-                  </Button>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      ))}
+          </>
+        }
+      >
+        <p className="workflow-muted break-words">{updateConfirmation?.original.url}</p>
+        <p className="workflow-muted">UID {updateConfirmation?.request.accountUid}</p>
+        <p className="workflow-muted">
+          成片 v{updateConfirmation?.renderVersion} · 发布资料 v{updateConfirmation?.publishVersion}
+        </p>
+        <p className="workflow-muted">{updateConfirmation?.title}</p>
+      </WorkflowDialog>
       <WorkflowDialog
         open={!!confirmation}
         onOpenChange={(open) => {
           if (!open) setConfirmation(null)
         }}
-        title="确认平台没有此稿件"
-        description={`只有已在${label}创作中心核查、确认这次投稿没有创建稿件时才能继续。确认后可手动发起新尝试；误判可能产生重复投稿。`}
+        title={confirmation?.snapshot.updateTarget ? '确认此次更新未生效' : '确认平台没有此稿件'}
+        description={
+          confirmation?.snapshot.updateTarget
+            ? '请先在创作中心核查并确认此次更新未生效。应用会核对原账号、作品稳定状态与视频内容回执，确认后可手动更新同一原作品。'
+            : `只有已在${label}创作中心核查、确认这次投稿没有创建稿件时才能继续。确认后可手动发起新尝试；误判可能产生重复投稿。`
+        }
         returnFocus={publishButton}
         footer={
           <>
@@ -507,7 +662,9 @@ export function PlatformPublishingPanel({
                 })
               }
             >
-              已核查，确认没有稿件
+              {confirmation?.snapshot.updateTarget
+                ? '已核查，确认此次更新未生效'
+                : '已核查，确认没有稿件'}
             </Button>
           </>
         }

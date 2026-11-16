@@ -42,9 +42,11 @@ export interface BilibiliPublishRequest {
   visibility: 'public' | 'private'
   copyright: 'original' | 'repost'
   source?: string
+  updateSubmissionId?: string
   scheduleAt?: string
 }
 export interface BilibiliPublishSnapshot {
+  updateTarget?: { sourceRecordId: string; externalId: string; url: string; accountUid: string }
   renderRevisionId: string
   publishRevisionId: string
   video: WorkflowFile
@@ -70,6 +72,9 @@ export interface BilibiliSubmission {
   updatedAt: string
   submittedAt: string | null
   verifiedAt: string | null
+  uploadedFilename?: string
+  platformCode?: number
+  uploadedCid?: string
   cliVersion: string
   scheduledAt?: string
 }

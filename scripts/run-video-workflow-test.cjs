@@ -13,6 +13,7 @@ const result = spawnSync(
     join(__dirname, 'test-frame-inspection-service.ts'),
     join(__dirname, 'test-frame-cover.ts'),
     join(__dirname, 'test-frame-cover-service.ts'),
+    join(__dirname, 'test-codex-imagegen.ts'),
   ],
   {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },

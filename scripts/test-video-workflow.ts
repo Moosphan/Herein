@@ -72,7 +72,11 @@ import { VoiceoverService } from '../src/main/services/voiceover/voiceover-servi
 import { resolveVoiceRequest } from '../src/shared/voiceover'
 import { copyPrompt } from '../src/main/services/video-workflow/copy'
 import { createWorkflowAudio, workflowVoiceSeed } from '../src/main/services/video-workflow/audio'
-import { productionRevision, productionReady } from '../src/shared/video-production'
+import {
+  productionRevision,
+  productionReady,
+  productionEditProject,
+} from '../src/shared/video-production'
 import {
   defaultMotion,
   extractMotionRequirements,
@@ -292,6 +296,14 @@ test('cover requests bind to final render and include video style, content and f
     })
     assert.throws(() => coverOptions(undefined), /请选择/)
     assert.throws(() => coverOptions({ method: 'image2', feedback: 'x'.repeat(5001) }), /5000/)
+    assert.deepEqual(coverOptions({ method: 'code', platform: 'douyin', includePortrait: true }), {
+      method: 'code',
+      feedback: '',
+      platform: 'douyin',
+      includePortrait: true,
+    })
+    assert.throws(() => coverOptions({ method: 'code', platform: 'unknown' } as never), /平台/)
+    assert.throws(() => coverOptions({ method: 'code', includePortrait: 'yes' } as never), /竖版/)
     const code = coverPrompt(state, { method: 'code', feedback: '保持紫色图解，标题更醒目' })
     for (const text of [
       '两镜新内容',
@@ -305,6 +317,11 @@ test('cover requests bind to final render and include video style, content and f
       assert.ok(code.includes(text), text)
     const image = coverPrompt(state, { method: 'image2' })
     assert.ok(image.includes('y=150–1050') && image.includes('不能放关键文字'))
+    const allRatios = coverPrompt(state, { method: 'code', includePortrait: true })
+    assert.ok(allRatios.includes('portraitHtml') && allRatios.includes('1080×1920'))
+    const douyin = coverPrompt(state, { method: 'code', platform: 'douyin' })
+    assert.ok(douyin.includes('抖音投稿封面') && douyin.includes('portraitHtml'))
+    assert.ok(!douyin.includes('"feedHtml"'))
     const cover = {
       file: render.file,
       feedFile: render.file,
@@ -328,6 +345,13 @@ test('cover requests bind to final render and include video style, content and f
       },
     }
     assert.throws(() => assertCoverSource(state), /成片已变化/)
+    const reusedCover = { ...cover, reuseConfirmations: [{ renderId: 'final-cover-source', confirmedAt: new Date().toISOString() }] }
+    state.stages.publish.payload.platforms.bilibili.cover = reusedCover
+    assert.doesNotThrow(() => assertCoverSource(state))
+    assert.equal(reusedCover.sourceRenderId, 'old-render')
+    reusedCover.reuseConfirmations[0].renderId = 'another-render'
+    assert.throws(() => assertCoverSource(state), /成片已变化/)
+    state.stages.publish.payload.platforms.bilibili.cover = cover
     cover.sourceRenderId = 'final-cover-source'
     assert.doesNotThrow(() => assertCoverSource(state))
   } finally {
@@ -362,7 +386,17 @@ test('publication preserves dual-ratio cover metadata and rejects invalid cover 
     },
   }
   assert.deepEqual(validatePayload('publish', payload).platforms.bilibili.cover, cover)
+  const reuseConfirmations = [{ renderId: 'new-render', confirmedAt: '2026-11-16T00:00:00.000Z' }]
+  const reused = validatePayload('publish', {
+    platforms: {
+      ...payload.platforms,
+      bilibili: { ...payload.platforms.bilibili, cover: { ...cover, reuseConfirmations } },
+    },
+  }).platforms.bilibili.cover!
+  assert.deepEqual(reused.reuseConfirmations, reuseConfirmations)
+  assert.equal(reused.sourceRenderId, 'final-render')
   for (const changes of [
+    { reuseConfirmations: [{ renderId: '', confirmedAt: 'invalid' }] },
     { width: 1601 },
     { feedHeight: 900 },
     { method: 'fake' },
@@ -1470,6 +1504,98 @@ function visualFixture() {
   }
   return { ...fixtureData, state, render }
 }
+
+test('production edits select corrected approved audio for unchanged frozen storyboard and narration', () => {
+  const { db, repository, state, render } = visualFixture()
+  try {
+    const original = state.stages.audio!
+    let project = repository.save(
+      state.id,
+      'roughcut',
+      {
+        ...render,
+        sourceStoryboard: state.stages.storyboard!.id,
+        sourceNarration: state.stages.narration!.id,
+        sourceAudio: original.id,
+      },
+      state.revision,
+      randomUUID(),
+    )
+    const audio = stageValue(project, 'audio')!
+    project = repository.save(
+      state.id,
+      'audio',
+      { ...audio, duration: 3, tracks: audio.tracks.map((track) => ({ ...track, duration: 1.5 })) },
+      project.revision,
+      randomUUID(),
+    )
+    assert.equal(productionEditProject(project).stages.audio!.id, original.id)
+    project = repository.approve(
+      state.id,
+      'audio',
+      project.stages.audio!.id,
+      project.revision,
+      randomUUID(),
+    )
+    const edited = productionEditProject(project)
+    assert.equal(edited.stages.audio!.id, project.stages.audio!.id)
+    assert.equal(edited.stages.storyboard!.id, state.stages.storyboard!.id)
+    assert.equal(edited.stages.narration!.id, state.stages.narration!.id)
+    assert.equal(stageValue(edited, 'audio')!.duration, 3)
+    assert.equal(stageValue(edited, 'roughcut')!.sourceAudio, original.id)
+    const prompt = motionPrompt(edited, '标题入场', 0, 'one')
+    const sceneTimings = JSON.parse(prompt.split('分镜与实测时长：')[1].split('\n')[0])
+    assert.deepEqual(
+      sceneTimings.map((scene: { duration: number }) => scene.duration),
+      [1.5, 1.5],
+    )
+    const job = repository.startJob(
+      project.id,
+      'roughcut',
+      project.revision,
+      randomUUID(),
+      'codex',
+      'audio-timing',
+    )
+    repository.markMotionJob(job.id)
+    const plan = (duration: number) => ({
+      summary: '按新配音时长安排标题入场',
+      feedback: '标题入场',
+      at: 0,
+      scenes: [
+        {
+          sceneId: 'one',
+          effects: [
+            {
+              selector: 'h1',
+              start: 0,
+              duration,
+              keyframes: [{ opacity: 0 }, { opacity: 1 }],
+            },
+          ],
+        },
+      ],
+    })
+    assert.throws(
+      () => repository.finishMotionPlan(job.id, plan(1.8)),
+      /动效时间必须位于当前分镜内/,
+    )
+    assert.equal(repository.finishMotionPlan(job.id, plan(1.5)).state, 'succeeded')
+    const changed = repository.save(
+      state.id,
+      'storyboard',
+      {
+        ...stageValue(project, 'storyboard')!,
+        scenes: [{ id: 'replacement', title: '新镜头', body: '新画面', layout: 'title' }],
+      },
+      project.revision,
+      randomUUID(),
+    )
+    assert.equal(productionEditProject(changed).stages.audio!.id, original.id)
+  } finally {
+    db.close()
+  }
+})
 
 test('one production approval creates an approved publication alias without changing video or quality', () => {
   const { db, repository, state, render } = visualFixture()

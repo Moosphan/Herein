@@ -11,7 +11,10 @@ import {
   readdirSync,
   mkdirSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { execFileSync } from 'node:child_process'
+import { bilibiliUpdatePreload } from '../src/main/services/video-workflow/bilibili-update'
+import { pathToFileURL } from 'node:url'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -96,6 +99,12 @@ async function fixture(platform: 'bilibili' | 'douyin' = 'bilibili', tags: strin
       randomUUID(),
     )
   }
+  mkdirSync(join(root, 'dist/platforms/bilibili/web'), { recursive: true })
+  for (const name of ['api', 'commands'])
+    copyFileSync(
+      join(import.meta.dirname, `fixtures/bilibili-update-${name}.mjs`),
+      join(root, `dist/platforms/bilibili/web/${name}.js`),
+    )
   const cli = join(root, 'dist', 'cli', 'main.mjs')
   const creator = join(root, 'dist', 'platforms', 'douyin', 'web', 'creator.js')
   mkdirSync(join(root, 'dist', 'cli'), { recursive: true })
@@ -1048,5 +1057,382 @@ test('disconnect cancels QR login and removes isolated local credentials', async
     assert.equal(existsSync(context.files.path(context.file)), true)
   } finally {
     await context.close()
+  }
+})
+
+test('update requires a successful original from this project and the same account', async () => {
+  const c = await fixture()
+  try {
+    assert.throws(
+      () => c.service.start({ ...c.request, updateSubmissionId: 'missing' }),
+      /原作品|记录/,
+    )
+    const original = await c.finish(c.service.start(c.request).id)
+    assert.throws(
+      () =>
+        c.service.start({ ...c.request, requestId: randomUUID(), updateSubmissionId: original.id }),
+      /通过|原作品/,
+    )
+    await c.service.refresh(c.project.id, original.id)
+    assert.throws(
+      () =>
+        c.service.start({
+          ...c.request,
+          requestId: randomUUID(),
+          accountUid: '456',
+          updateSubmissionId: original.id,
+        }),
+      /账号/,
+    )
+    assert.throws(
+      () =>
+        c.service.start({
+          ...c.request,
+          requestId: randomUUID(),
+          updateSubmissionId: original.id,
+          scheduleAt: new Date(Date.now() + 120000).toISOString(),
+        }),
+      /定时/,
+    )
+  } finally {
+    await c.close()
+  }
+})
+
+test('updates freeze the original ID, deduplicate and require new CID before published', async () => {
+  const c = await fixture()
+  try {
+    const original = await c.finish(c.service.start(c.request).id)
+    await c.service.refresh(c.project.id, original.id)
+    const request = { ...c.request, requestId: randomUUID(), updateSubmissionId: original.id }
+    const started = c.service.start(request)
+    assert.equal(started.snapshot.updateTarget?.externalId, original.externalId)
+    assert.equal(c.service.start(request).id, started.id)
+    const updated = await c.finish(started.id)
+    assert.equal(updated.state, 'reviewing', updated.error ?? '')
+    assert.equal(updated.externalId, original.externalId)
+    assert.equal(updated.uploadedCid, '200')
+    assert.equal((await c.service.refresh(c.project.id, updated.id)).state, 'reviewing')
+    writeFileSync(join(c.root, 'mode'), 'new-content')
+    assert.equal((await c.service.refresh(c.project.id, updated.id)).state, 'published')
+    assert.equal(
+      c.service.start({ ...request, requestId: randomUUID(), updateSubmissionId: updated.id }).id,
+      updated.id,
+    )
+    assert.equal(JSON.parse(readFileSync(join(c.root, 'update-body'), 'utf8')).aid, 12345)
+    assert.equal(JSON.parse(readFileSync(join(c.root, 'update-body'), 'utf8')).mission_id, 99)
+  } finally {
+    await c.close()
+  }
+})
+
+const installedCatbus =
+  process.env.HEREIN_CATBUS_TEST_ENTRY ??
+  join(
+    homedir(),
+    '.local/share/mydashboard/publishing-tools/node_modules/catbus-cli/dist/cli/main.js',
+  )
+
+test(
+  'real installed Catbus loader edits the original archive and rejects unsupported targets before upload',
+  { skip: !existsSync(installedCatbus) },
+  () => {
+    const entry = installedCatbus
+    const root = mkdtempSync(join(tmpdir(), 'bili-real-loader-'))
+    try {
+      const receipt = join(root, 'receipt.json')
+      const preload = join(root, 'update.mjs')
+      writeFileSync(
+        preload,
+        bilibiliUpdatePreload(
+          entry,
+          {
+            sourceRecordId: 'local',
+            externalId: 'BV1xx411c7mD',
+            url: 'https://www.bilibili.com/video/BV1xx411c7mD',
+            accountUid: '123',
+          },
+          receipt,
+        ),
+      )
+      const inspectPreload = join(root, 'inspect.mjs')
+      writeFileSync(
+        inspectPreload,
+        bilibiliUpdatePreload(
+          entry,
+          {
+            sourceRecordId: 'local',
+            externalId: 'BV1xx411c7mD',
+            url: 'https://www.bilibili.com/video/BV1xx411c7mD',
+            accountUid: '123',
+          },
+          '',
+          true,
+        ),
+      )
+      for (const mode of [
+        'success',
+        'inspect',
+        'empty-description',
+        'numeric-settings',
+        'missing-settings',
+        'invalid-settings',
+        'wrong-owner',
+        'multipart',
+        'wrong-account',
+      ]) {
+        const script = `
+        import * as api from ${JSON.stringify(pathToFileURL(join(entry, '../../platforms/bilibili/web/api.js')).href)};
+        const mode = ${JSON.stringify(mode)};
+        let writes = 0;
+        const description = mode === 'empty-description' ? '' : 'New description';
+        const b = { mid: mode === 'wrong-account' ? 999 : 123, csrf: 'fixture', wbi: async query => query,
+          get: async (url) => url.includes('/wbi/view')
+            ? { bvid: 'BV1xx411c7mD', aid: 12345, owner: { mid: mode === 'wrong-owner' ? 999 : 123 }, pages: mode === 'multipart' ? [{cid: 100}, {cid: 101}] : [{cid: 100}] }
+            : { archive: { aid: 12345, mission_id: 99, subtitle: {open: 1}, ...(mode === 'missing-settings' ? {} : mode === 'numeric-settings' ? {human_type2: 5, recreate: 1} : {human_type2: {id: mode === 'invalid-settings' ? 'bad' : 0, name: ''}, recreate: {auth: 1, editable: 1, switch: -1}}), desc: 'Old description', desc_format_id: 1, desc_v2: [{raw_text: '@old', type: 2, biz_id: '999'}] }, videos: [{cid: 100, filename: 'old', status: 0, aid: 12345, reject_reason: 'readonly'}] },
+          post: async (url, options) => { writes++; if (!url.endsWith('/x/vu/web/edit')) throw Error('create endpoint');
+            if (options.json.human_type2 !== (mode === 'numeric-settings' ? 5 : 0) || options.json.recreate !== (mode === 'numeric-settings' ? 1 : mode === 'missing-settings' ? 0 : -1)) throw Error('archive response objects leaked into edit request');
+            if (options.json.new_web_edit !== 1) throw Error('missing web edit mode');
+            if (options.json.aid !== 12345 || options.json.mission_id !== 99 || options.json.subtitle.open !== 1 || options.json.videos[0].cid !== 200) throw Error('lost metadata');
+            if (JSON.stringify(Object.keys(options.json.videos[0]).sort()) !== JSON.stringify(['cid','desc','filename','title'])) throw Error('readonly video metadata');
+            if (options.json.desc !== description || options.json.desc_format_id !== 0 || JSON.stringify(options.json.desc_v2) !== JSON.stringify(description ? [{raw_text:description,type:1,biz_id:''}] : [])) throw Error('stale rich description');
+            return {aid: 12345}; }
+        };
+        try {
+          const original = await api.hereinPrepareUpdate(b);
+          if (mode === 'inspect') {
+            globalThis.hereinMockBili = b;
+            const { register } = await import('node:module');
+            const hook = 'export async function load(url, context, nextLoad) {' +
+              'const result = await nextLoad(url, context);' +
+              'if (!url.endsWith("/platforms/bilibili/web/client.js")) return result;' +
+              'return { ...result, source: String(result.source).replace("export async function bili(ctx) {", "export async function bili(ctx) { return globalThis.hereinMockBili;") }; }';
+            register('data:text/javascript;base64,' + Buffer.from(hook).toString('base64'), import.meta.url);
+            const commands = await import(${JSON.stringify(pathToFileURL(join(entry, '../../platforms/bilibili/web/commands.js')).href)});
+            const inspected = await commands.itemGet({args: {item: 'BV1xx411c7mD'}});
+            console.log(JSON.stringify({ writes, cid: inspected.videos[0].cid })); process.exit(0);
+          }
+          const result = await api.submitArchive(b, { videos: [{filename: 'upload', biz_id: 200}], title: 'New', desc: description, private: false });
+          console.log(JSON.stringify({writes, id: result.bvid}));
+        } catch(error) { console.log(JSON.stringify({writes, code: error.code})); }
+      `
+        const result = JSON.parse(
+          execFileSync(
+            'node',
+            [
+              '--import',
+              mode === 'inspect' ? inspectPreload : preload,
+              '--input-type=module',
+              '-e',
+              script,
+            ],
+            {
+              encoding: 'utf8',
+            },
+          ),
+        )
+        if (mode === 'inspect') assert.deepEqual(result, { writes: 0, cid: 100 })
+        else if (
+          ['success', 'empty-description', 'numeric-settings', 'missing-settings'].includes(mode)
+        )
+          assert.deepEqual(result, { writes: 1, id: 'BV1xx411c7mD' })
+        else assert.deepEqual(result, { writes: 0, code: 'UPDATE_INVALID' })
+      }
+      assert.deepEqual(JSON.parse(readFileSync(receipt, 'utf8')), {
+        cid: '200',
+        filename: 'upload',
+      })
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  },
+)
+
+test('unknown updates retain original ID and require explicit verified recovery before retry', async () => {
+  const c = await fixture()
+  try {
+    const original = await c.finish(c.service.start(c.request).id)
+    await c.service.refresh(c.project.id, original.id)
+    writeFileSync(join(c.root, 'mode'), 'network')
+    const request = { ...c.request, requestId: randomUUID(), updateSubmissionId: original.id }
+    const unknown = await c.finish(c.service.start(request).id)
+    assert.equal(unknown.state, 'unknown')
+    assert.equal(unknown.externalId, original.externalId)
+    assert.equal(unknown.uploadedCid, '200')
+    const checked = await c.service.refresh(c.project.id, unknown.id)
+    assert.equal(checked.state, 'unknown')
+    assert.match(checked.error ?? '', /尚未核实/)
+    assert.doesNotMatch(checked.error ?? '', /待审核/)
+    assert.equal(c.service.start({ ...request, requestId: randomUUID() }).id, unknown.id)
+    assert.throws(
+      () => c.service.start({ ...request, requestId: randomUUID(), visibility: 'private' }),
+      /待核查/,
+    )
+    writeFileSync(join(c.root, 'mode'), 'new-content')
+    await assert.rejects(c.service.confirmNotSubmitted(c.project.id, unknown.id), /已有本次更新/)
+    writeFileSync(join(c.root, 'mode'), '')
+    assert.equal((await c.service.confirmNotSubmitted(c.project.id, unknown.id)).state, 'failed')
+    const retry = await c.finish(c.service.start({ ...request, requestId: randomUUID() }).id)
+    assert.equal(retry.state, 'reviewing', retry.error ?? '')
+    assert.equal(retry.externalId, original.externalId)
+    assert.equal(retry.snapshot.updateTarget?.sourceRecordId, original.id)
+  } finally {
+    await c.close()
+  }
+})
+
+test('restart recovers durable update content receipt before reconciliation and manual recovery', async () => {
+  const c = await fixture()
+  let restarted: BilibiliPublishingService | undefined
+  try {
+    const original = await c.finish(c.service.start(c.request).id)
+    await c.service.refresh(c.project.id, original.id)
+    const update = await c.finish(
+      c.service.start({ ...c.request, requestId: randomUUID(), updateSubmissionId: original.id })
+        .id,
+    )
+    await c.service.dispose()
+    const interrupted = {
+      ...update,
+      state: 'uploading',
+      uploadedCid: undefined,
+      uploadedFilename: undefined,
+    }
+    c.db
+      .prepare('UPDATE video_bilibili_submissions SET state=?, record=? WHERE id=?')
+      .run('uploading', JSON.stringify(interrupted), update.id)
+    const receipt = join(c.client.home, `update-receipt-${update.id}.json`)
+    writeFileSync(receipt, JSON.stringify({ cid: '200', filename: 'new.mp4' }))
+    restarted = new BilibiliPublishingService(
+      c.root,
+      c.db,
+      c.repository,
+      c.files,
+      () => c.runtime,
+      () => {},
+    )
+    assert.equal(restarted.list(c.project.id)[0].uploadedCid, '200')
+    assert.equal(restarted.list(c.project.id)[0].uploadedFilename, 'new.mp4')
+    assert.equal(existsSync(receipt), false, 'Receipt is consumed only after database persistence')
+    assert.equal((await restarted.refresh(c.project.id, update.id)).state, 'unknown')
+    writeFileSync(join(c.root, 'mode'), 'new-content')
+    await assert.rejects(restarted.confirmNotSubmitted(c.project.id, update.id), /已有本次更新/)
+    assert.equal((await restarted.refresh(c.project.id, update.id)).state, 'published')
+  } finally {
+    await restarted?.dispose()
+    await c.close()
+  }
+})
+
+test('incompatible update adapter fails before upload without falling back to create', async () => {
+  const c = await fixture()
+  try {
+    const original = await c.finish(c.service.start(c.request).id)
+    await c.service.refresh(c.project.id, original.id)
+    writeFileSync(
+      join(c.root, 'dist/platforms/bilibili/web/commands.js'),
+      'export function changed() {}',
+    )
+    const update = await c.finish(
+      c.service.start({ ...c.request, requestId: randomUUID(), updateSubmissionId: original.id })
+        .id,
+    )
+    assert.equal(update.state, 'failed')
+    assert.match(update.error ?? '', /不兼容/)
+    assert.equal(update.externalId, original.externalId)
+    assert.equal(readFileSync(join(c.root, 'calls'), 'utf8').trim().split('\n').length, 1)
+  } finally {
+    await c.close()
+  }
+})
+
+test('definitive update rejection is retryable and legacy 21001 reconciles read-only', async () => {
+  const c = await fixture()
+  try {
+    const original = await c.finish(c.service.start(c.request).id)
+    await c.service.refresh(c.project.id, original.id)
+    writeFileSync(join(c.root, 'mode'), 'update-21001')
+    const update = await c.finish(
+      c.service.start({ ...c.request, requestId: randomUUID(), updateSubmissionId: original.id })
+        .id,
+    )
+    assert.equal(update.state, 'failed')
+    assert.equal(update.platformCode, 21001)
+    assert.match(update.error ?? '', /21001/)
+    const legacy = {
+      ...update,
+      state: 'unknown',
+      platformCode: undefined,
+      uploadedFilename: undefined,
+      error: 'B 站未返回可确认的投稿结果；平台信息：参数错误；状态码 21001',
+    }
+    c.db
+      .prepare('UPDATE video_bilibili_submissions SET state=?,record=? WHERE id=?')
+      .run('unknown', JSON.stringify(legacy), update.id)
+    const calls = readFileSync(join(c.root, 'calls'), 'utf8')
+    const checked = await c.service.refresh(c.project.id, update.id)
+    assert.equal(checked.state, 'failed')
+    assert.equal(checked.platformCode, 21001)
+    assert.equal(readFileSync(join(c.root, 'calls'), 'utf8'), calls)
+    writeFileSync(join(c.root, 'mode'), 'old-content-review')
+    const stillFailed = await c.service.refresh(c.project.id, update.id)
+    assert.equal(stillFailed.state, 'failed')
+    assert.equal(stillFailed.platformCode, 21001)
+    writeFileSync(join(c.root, 'mode'), '')
+    const retry = await c.finish(
+      c.service.start({ ...c.request, requestId: randomUUID(), updateSubmissionId: original.id })
+        .id,
+    )
+    assert.notEqual(retry.id, update.id)
+    assert.equal(retry.externalId, original.externalId)
+    assert.equal(retry.state, 'reviewing')
+  } finally {
+    await c.close()
+  }
+})
+
+test('creator filename proves replacement retaining original part CID and review states are authoritative', async () => {
+  const c = await fixture()
+  try {
+    const original = await c.finish(c.service.start(c.request).id)
+    await c.service.refresh(c.project.id, original.id)
+    const update = await c.finish(
+      c.service.start({ ...c.request, requestId: randomUUID(), updateSubmissionId: original.id })
+        .id,
+    )
+    assert.equal(update.uploadedFilename, 'new.mp4')
+    writeFileSync(join(c.root, 'mode'), 'same-cid-new-file-review')
+    assert.equal((await c.service.refresh(c.project.id, update.id)).state, 'reviewing')
+    writeFileSync(join(c.root, 'mode'), 'same-cid-new-file-rejected')
+    assert.equal((await c.service.refresh(c.project.id, update.id)).state, 'rejected')
+    writeFileSync(join(c.root, 'mode'), 'same-cid-new-file-pending-part')
+    assert.equal((await c.service.refresh(c.project.id, update.id)).state, 'rejected')
+    writeFileSync(join(c.root, 'mode'), 'same-cid-new-file-missing-status')
+    assert.equal((await c.service.refresh(c.project.id, update.id)).state, 'rejected')
+    writeFileSync(join(c.root, 'mode'), 'same-cid-new-file')
+    assert.equal((await c.service.refresh(c.project.id, update.id)).state, 'published')
+  } finally {
+    await c.close()
+  }
+})
+
+test('legacy CID-only update receipts still reconcile when exact new CID is visible', async () => {
+  const c = await fixture()
+  try {
+    const original = await c.finish(c.service.start(c.request).id)
+    await c.service.refresh(c.project.id, original.id)
+    const update = await c.finish(
+      c.service.start({ ...c.request, requestId: randomUUID(), updateSubmissionId: original.id })
+        .id,
+    )
+    const legacy = { ...update, state: 'unknown', uploadedFilename: undefined }
+    c.db
+      .prepare('UPDATE video_bilibili_submissions SET state=?,record=? WHERE id=?')
+      .run('unknown', JSON.stringify(legacy), update.id)
+    assert.equal((await c.service.refresh(c.project.id, update.id)).state, 'unknown')
+    writeFileSync(join(c.root, 'mode'), 'new-content')
+    assert.equal((await c.service.refresh(c.project.id, update.id)).state, 'published')
+  } finally {
+    await c.close()
   }
 })

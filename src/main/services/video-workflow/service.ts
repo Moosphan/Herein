@@ -1,5 +1,9 @@
 import type Database from 'better-sqlite3'
-import { productionRevision, productionSourceProject } from '../../../shared/video-production'
+import {
+  productionRevision,
+  productionSourceProject,
+  productionEditProject,
+} from '../../../shared/video-production'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -109,6 +113,7 @@ export interface WorkflowGeneration {
   reuseNarration?: boolean
   music?: RenderMusic
   musicOnly?: boolean
+  audioOnly?: boolean
   renderEngine?: VideoRenderEngine
   nativeMaterials?: NativeMaterial[]
 }
@@ -472,6 +477,21 @@ export class VideoWorkflowService {
       | StagePayloads['roughcut']
       | undefined
     if (
+      input.audioOnly !== undefined &&
+      (input.audioOnly !== true ||
+        input.stage !== 'roughcut' ||
+        input.modification ||
+        input.motionPlanJobId ||
+        input.musicOnly ||
+        input.nativeMaterials ||
+        imports ||
+        visibleVideo?.renderEngine !== 'remotion' ||
+        !visibleVideo.compositionNames.includes('visuals.tsx') ||
+        productionEditProject(project).stages.audio?.id === visibleVideo.sourceAudio ||
+        productionEditProject(project).stages.audio?.id !== project.stages.audio?.id)
+    )
+      throw new Error('配音更新需要同一分镜与口播的已审核配音及原生视频工程')
+    if (
       input.musicOnly !== undefined &&
       (input.musicOnly !== true ||
         input.stage !== 'roughcut' ||
@@ -495,25 +515,31 @@ export class VideoWorkflowService {
       input = {
         ...input,
         renderEngine:
-          input.stage === 'render' || input.musicOnly
+          input.stage === 'render' || input.musicOnly || input.audioOnly
             ? sourceEngine
             : (input.renderEngine ?? sourceEngine),
       }
     }
     if (isImportedVideo(project) && input.stage !== 'publish')
       throw new Error('外部成片项目仅支持发布资料和封面生成')
-    const music =
+    let music =
       input.music === undefined
         ? input.stage === 'roughcut' && !input.musicOnly
           ? visibleVideo?.music
           : undefined
         : validateRenderMusic(input.music)
+    if (input.audioOnly && input.music === undefined && music)
+      music = {
+        ...music,
+        duration: Math.min(music.duration, stageValue(project, 'audio')!.duration),
+      }
     if (music && !['roughcut', 'render'].includes(input.stage))
       throw new Error('配乐设置仅用于视频制作阶段')
     if (music) await this.files.verify(project.id, music.file)
-    const motionProject =
-      input.modification || input.motionPlanJobId || input.musicOnly
-        ? renderSourceProject(productionProject)
+    const motionProject = input.musicOnly
+      ? renderSourceProject(productionProject)
+      : input.modification || input.motionPlanJobId || input.audioOnly
+        ? productionEditProject(project)
         : project
     const existingNarration = stageValue(project, 'narration')
     const storyboard = stageValue(project, 'storyboard')
@@ -589,6 +615,7 @@ export class VideoWorkflowService {
     if (
       input.stage === 'roughcut' &&
       !input.musicOnly &&
+      !input.audioOnly &&
       !input.motionPlanJobId &&
       project.jobs.some(
         (job) =>
@@ -607,14 +634,14 @@ export class VideoWorkflowService {
       throw new Error('封面生成仅用于平台发布阶段，请单独提交')
     if (cover?.method === 'image2') {
       const runtime = this.runtime.get()
-      if (!runtime.image2Path || !runtime.bunPath)
-        throw new Error('请在执行环境配置 Image2 脚本和 Bun 路径，再生成封面')
+      if (!runtime.codexPath)
+        throw new Error('请在执行环境配置已登录且支持原生图片生成的 Codex CLI')
     }
     const feedback = input.stage === 'copy' ? copyFeedback(input.copyFeedback) : undefined
     await this.verifyInputs(
       project.id,
       input.stage,
-      Boolean(input.audioTrackId) || input.musicOnly,
+      Boolean(input.audioTrackId) || input.musicOnly || input.audioOnly,
       motionProject,
     )
     if ((input.modification || input.motionPlanJobId) && input.stage !== 'roughcut')
@@ -666,11 +693,13 @@ export class VideoWorkflowService {
       throw new Error('画面素材变更仅用于整片原生粗剪；修改计划沿用来源粗剪素材')
     if (input.stage === 'roughcut' && input.renderEngine === 'remotion') {
       const nativeMaterials = validateNativeMaterials(
-        input.modification || motion || input.musicOnly
+        input.modification || motion || input.musicOnly || input.audioOnly
           ? (stageValue(motionProject, 'roughcut')?.nativeMaterials ?? [])
           : (input.nativeMaterials ?? stageValue(project, 'roughcut')?.nativeMaterials ?? []),
         stageValue(
-          input.modification || motion || input.musicOnly ? motionProject : project,
+          input.modification || motion || input.musicOnly || input.audioOnly
+            ? motionProject
+            : project,
           'storyboard',
         )!.scenes.map((scene) => scene.id),
       )
@@ -690,6 +719,7 @@ export class VideoWorkflowService {
     const needsInitialMotion =
       input.stage === 'roughcut' &&
       !input.musicOnly &&
+      !input.audioOnly &&
       input.renderEngine !== 'remotion' &&
       !motion &&
       !input.modification &&
@@ -715,7 +745,7 @@ export class VideoWorkflowService {
       imports
         ? 'manual-audio'
         : cover?.method === 'image2'
-          ? 'image2'
+          ? 'codex'
           : (audioAgent ?? input.executor),
       fingerprint({ ...input, imports }),
       input.audioTrackId
@@ -733,6 +763,8 @@ export class VideoWorkflowService {
           ? {
               action: 'generate-cover',
               feedback: cover.feedback,
+              platform: cover.platform ?? 'bilibili',
+              includePortrait: cover.platform === 'douyin' || Boolean(cover.includePortrait),
               sourceVersion: project.stages.publish?.version,
             }
           : input.reuseNarration
@@ -843,7 +875,10 @@ export class VideoWorkflowService {
           payload = validatePayload('publish', {
             platforms: {
               ...base.platforms,
-              bilibili: { ...base.platforms.bilibili, cover: generated },
+              [cover.platform ?? 'bilibili']: {
+                ...base.platforms[cover.platform ?? 'bilibili'],
+                cover: generated,
+              },
             },
           })
         } else if (publication) {
@@ -1025,8 +1060,10 @@ export class VideoWorkflowService {
             }
           }
           payload = await renderWorkflow({
-            project: input.motionPlanJobId || input.musicOnly ? motionProject : project,
-            final: input.stage === 'render' || Boolean(input.musicOnly),
+            project:
+              input.motionPlanJobId || input.musicOnly || input.audioOnly ? motionProject : project,
+            final: input.stage === 'render' || Boolean(input.musicOnly) || Boolean(input.audioOnly),
+            refreshAudio: input.audioOnly,
             files: this.files,
             runtime,
             cwd,
@@ -1036,7 +1073,10 @@ export class VideoWorkflowService {
             music,
             renderEngine: input.renderEngine,
             nativeMaterials: input.nativeMaterials,
-            ...(input.renderEngine === 'remotion' && input.stage === 'roughcut' && !input.musicOnly
+            ...(input.renderEngine === 'remotion' &&
+            input.stage === 'roughcut' &&
+            !input.musicOnly &&
+            !input.audioOnly
               ? {
                   createNative: (prompt: string, options: NativeAttemptOptions) =>
                     runAgent(
@@ -1053,7 +1093,8 @@ export class VideoWorkflowService {
                 }
               : {}),
           })
-          if (input.musicOnly) delete (payload as StagePayloads['roughcut']).sourceRoughcut
+          if (input.musicOnly || input.audioOnly)
+            delete (payload as StagePayloads['roughcut']).sourceRoughcut
         } else {
           const rawSettings =
             input.stage === 'storyboard'
@@ -1468,6 +1509,11 @@ export class VideoWorkflowService {
           await this.files.verify(projectId, metadata.cover.feedFile),
           join(directory, 'cover-4x3.png'),
         )
+      if (metadata.cover?.portraitFile)
+        copyFileSync(
+          await this.files.verify(projectId, metadata.cover.portraitFile),
+          join(directory, 'cover-9x16.png'),
+        )
       writeFileSync(join(directory, 'metadata.json'), JSON.stringify(metadata, null, 2))
       writeFileSync(
         join(directory, 'manifest.json'),
@@ -1494,8 +1540,11 @@ export class VideoWorkflowService {
           (metadata.cover && platform === 'bilibili'
             ? '\ncover.png 为 1600×900（16:9）个人空间封面；cover-4x3.png 为 1600×1200（4:3）首页推荐封面，请在创作中心分别设置。\n'
             : metadata.cover
-              ? `\ncover.png 为所选视频帧，保留原画幅 ${metadata.cover.width}×${metadata.cover.height}。\n`
+              ? `\ncover.png 为当前投稿封面，规格 ${metadata.cover.width}×${metadata.cover.height}。\n`
               : '') +
+          (metadata.cover?.portraitFile
+            ? '\ncover-9x16.png 为 1080×1920（9:16）竖版封面素材。\n'
+            : '') +
           '上传成功后，将发布链接回填到 Herein。导出发布包不代表平台发布成功。',
       )
       this.repository.publication(

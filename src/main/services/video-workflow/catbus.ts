@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, realpathSync, writeFileSync, rmSync } from 'node:fs'
+import { readFileSync, existsSync, mkdirSync, realpathSync, writeFileSync, rmSync } from 'node:fs'
 import { dirname, isAbsolute, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
@@ -11,6 +11,7 @@ import { PUBLISHING_PLATFORMS, validPublishingUid } from '../../../shared/platfo
 import { catbusProcess } from './catbus-process'
 import { publishingAccountHome } from './bilibili-accounts'
 import { douyinTopicPreload } from './douyin-topics'
+import { bilibiliUpdatePreload } from './bilibili-update'
 
 const MESSAGES: Record<string, string> = {
   AUTH_REQUIRED: '请先扫码连接 B 站账号',
@@ -25,6 +26,9 @@ const MESSAGES: Record<string, string> = {
   CANCELLED: '操作已停止；已提交的稿件不会被自动撤回',
   OUTPUT_LIMIT: 'CLI 输出异常，操作已停止',
   INVALID_RESPONSE: 'CLI 未返回有效回执，请核查平台投稿结果',
+  UPDATE_UNSUPPORTED: '当前 Catbus 不兼容原作品更新，已停止，请配置原版 Catbus 0.2.1',
+  UPDATE_REJECTED: 'B 站拒绝此次更新，参数错误（状态码 21001），可手动重试更新原作品',
+  UPDATE_INVALID: '原作品账号、分P或资料无法核实，已停止更新，请在创作中心核查',
   TOPIC_INVALID: '抖音话题名称不能包含空格、# 或 @，请修改标签并重新审核',
   TOPIC_UNSUPPORTED: '当前 Catbus 文件不兼容抖音话题适配，已停止投稿，请配置原版 Catbus 0.2.1',
 }
@@ -54,6 +58,9 @@ function upstreamDetail(error: Record<string, unknown>) {
   return [reason, statusText].filter(Boolean).join('；')
 }
 export class CatbusFailure extends Error {
+  uploadedFilename?: string
+  platformCode?: number
+  uploadedCid?: string
   constructor(
     readonly code: string,
     platform: VideoPlatform = 'bilibili',
@@ -142,6 +149,11 @@ export class CatbusPublishingClient {
     signal?: AbortSignal,
     progress?: (text: string) => void,
     metadata?: BilibiliPublishSnapshot['metadata'],
+    update?: {
+      target: NonNullable<BilibiliPublishSnapshot['updateTarget']>
+      receipt: string
+      inspect?: boolean
+    },
   ) {
     const configured = this.runtime.catbusPath
     if (
@@ -161,6 +173,11 @@ export class CatbusPublishingClient {
       if (metadata && this.platform === 'douyin' && metadata.tags.length) {
         const source = douyinTopicPreload(entry, metadata)
         preload = join(this.home, `topics-${randomUUID()}.mjs`)
+        writeFileSync(preload, source, { mode: 0o600 })
+      }
+      if (update) {
+        const source = bilibiliUpdatePreload(entry, update.target, update.receipt, update.inspect)
+        preload = join(this.home, `update-${randomUUID()}.mjs`)
         writeFileSync(preload, source, { mode: 0o600 })
       }
       result = await catbusProcess(
@@ -185,6 +202,20 @@ export class CatbusPublishingClient {
     }
     if (envelope.ok !== true || result.code !== 0) {
       const error = object(envelope.error)
+      const detail =
+        error.detail && typeof error.detail === 'object'
+          ? (error.detail as Record<string, unknown>)
+          : {}
+      if (
+        update &&
+        !update.inspect &&
+        error.code === 'UPSTREAM' &&
+        (detail.code ?? detail.status_code) === 21001
+      ) {
+        const failure = new CatbusFailure('UPDATE_REJECTED', this.platform)
+        failure.platformCode = 21001
+        throw failure
+      }
       throw new CatbusFailure(
         typeof error.code === 'string' ? error.code : 'INVALID_RESPONSE',
         this.platform,
@@ -219,6 +250,11 @@ export class CatbusPublishingClient {
     signal?: AbortSignal,
     progress?: (text: string) => void,
     metadata?: BilibiliPublishSnapshot['metadata'],
+    update?: {
+      target: NonNullable<BilibiliPublishSnapshot['updateTarget']>
+      receipt: string
+      inspect?: boolean
+    },
   ) {
     await this.check(signal)
     return this.run(
@@ -237,6 +273,7 @@ export class CatbusPublishingClient {
       signal,
       progress,
       metadata,
+      update,
     )
   }
   async account(signal?: AbortSignal) {
@@ -273,13 +310,49 @@ export class CatbusPublishingClient {
       }
     })
   }
+  private updateReceiptPath(id: string) {
+    if (!/^[a-f0-9-]{36}$/i.test(id)) throw new Error('无效更新记录 ID')
+    return join(this.home, `update-receipt-${id}.json`)
+  }
+  readUpdateReceipt(id: string) {
+    const path = this.updateReceiptPath(id)
+    if (!existsSync(path)) return undefined
+    const value = JSON.parse(readFileSync(path, 'utf8'))
+    if (typeof value.cid !== 'string' || !/^\d+$/.test(value.cid))
+      throw new CatbusFailure('INVALID_RESPONSE')
+    return {
+      cid: value.cid as string,
+      filename:
+        typeof value.filename === 'string' && value.filename.length > 0
+          ? value.filename
+          : undefined,
+    }
+  }
+  clearUpdateReceipt(id: string) {
+    rmSync(this.updateReceiptPath(id), { force: true })
+  }
   async publish(
     snapshot: BilibiliPublishSnapshot,
     video: string,
     cover: string,
     signal: AbortSignal,
     progress: (text: string) => void,
+    submissionId?: string,
   ) {
+    const receipt =
+      snapshot.updateTarget && submissionId
+        ? this.updateReceiptPath(submissionId)
+        : join(this.home, `receipt-${randomUUID()}.json`)
+    let uploadedCid: string | undefined
+    let uploadedFilename: string | undefined
+    const readReceipt = () => {
+      if (existsSync(receipt)) {
+        const value = JSON.parse(readFileSync(receipt, 'utf8'))
+        if (typeof value.cid === 'string' && /^\d+$/.test(value.cid)) uploadedCid = value.cid
+        if (typeof value.filename === 'string' && value.filename.length > 0)
+          uploadedFilename = value.filename
+      }
+    }
     const description = join(this.home, `description-${randomUUID()}.txt`)
     writeFileSync(description, snapshot.metadata.description, { mode: 0o600 })
     try {
@@ -307,6 +380,7 @@ export class CatbusPublishingClient {
           signal,
           progress,
           snapshot.metadata,
+          snapshot.updateTarget ? { target: snapshot.updateTarget, receipt } : undefined,
         ),
       )
       if (
@@ -322,10 +396,69 @@ export class CatbusPublishingClient {
       } catch {
         throw new CatbusFailure('INVALID_RESPONSE')
       }
-      return { id, url: publishingVideoUrl(this.platform, id) }
+      if (snapshot.updateTarget && id !== snapshot.updateTarget.externalId)
+        throw new CatbusFailure('INVALID_RESPONSE')
+      readReceipt()
+      if (snapshot.updateTarget && !uploadedCid) throw new CatbusFailure('INVALID_RESPONSE')
+      return { id, url: publishingVideoUrl(this.platform, id), uploadedCid, uploadedFilename }
+    } catch (error) {
+      readReceipt()
+      if (error instanceof CatbusFailure) {
+        error.uploadedCid = uploadedCid
+        error.uploadedFilename = uploadedFilename
+      }
+      throw error
     } finally {
       rmSync(description, { force: true })
+      if (!snapshot.updateTarget || !submissionId) rmSync(receipt, { force: true })
     }
+  }
+  async inspectUpdate(
+    target: NonNullable<BilibiliPublishSnapshot['updateTarget']>,
+    signal?: AbortSignal,
+  ) {
+    const data = object(
+      await this.command(
+        'item',
+        'get',
+        [target.externalId, '--raw'],
+        signal,
+        undefined,
+        undefined,
+        { target, receipt: '', inspect: true },
+      ),
+    )
+    const archive = object(data.archive)
+    if (!Array.isArray(data.videos) || data.videos.length !== 1)
+      throw new CatbusFailure('UPDATE_INVALID')
+    const video = object(data.videos[0])
+    const state = typeof archive.state === 'number' ? archive.state : NaN
+    // Match Catbus 0.2.1 creator archive normalization.
+    const status =
+      state >= 0 && video.status === 0
+        ? 'published'
+        : [-2, -4, -16, -100].includes(state)
+          ? 'rejected'
+          : [-1, -6, -30, -40].includes(state)
+            ? 'reviewing'
+            : null
+    return {
+      cid: String(video.cid),
+      filename: typeof video.filename === 'string' ? video.filename : undefined,
+      status,
+    }
+  }
+  async contentCid(id: string, uid: string, signal?: AbortSignal) {
+    const data = object(await this.command('item', 'get', [id, '--raw'], signal))
+    const owner = object(data.owner)
+    if (
+      data.bvid !== id ||
+      String(owner.mid) !== uid ||
+      !Array.isArray(data.pages) ||
+      data.pages.length !== 1
+    )
+      throw new CatbusFailure('UPDATE_INVALID')
+    return String(object(data.pages[0]).cid)
   }
   async find(id: string, signal?: AbortSignal) {
     const data = await this.command('item', 'list', ['--limit', '200'], signal)

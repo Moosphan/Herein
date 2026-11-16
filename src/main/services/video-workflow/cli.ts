@@ -203,6 +203,7 @@ export async function runAgent(
     timeout?: number
     onProgress?: (message: string) => void
     drawingSkillRoots?: string[]
+    imageGeneration?: { referencePath: string; outputPath: string; width: number; height: number }
   } = {},
 ): Promise<unknown> {
   if (prompt.length > 200000)
@@ -210,8 +211,14 @@ export async function runAgent(
   const output = join(cwd, 'agent-result.txt')
   const timeout = options.timeout ?? 900000
   const minutes = Math.ceil(timeout / 60000)
-  const drawingContext = drawingSkillContext(prompt, options.drawingSkillRoots)
-  const taskPrompt = `这是宿主视频工作流中的非交互内容生成任务。只返回所要求的完整 JSON。可以读取用户明确指定的本地参考和绘图技能，按其视觉语言创作；不要启动浏览器、渲染器、预览服务或子代理，不修改文件，不执行后续工作流。宿主负责预览、画幅与动效校验，生成结果仍需用户审核。不要为工具不可用而等待或重复尝试。\n\n${drawingContext}\n\n${prompt}`
+  if (options.imageGeneration && executor !== 'codex')
+    throw new Error('原生图片生成需要使用已登录的 Codex CLI')
+  const drawingContext = options.imageGeneration
+    ? ''
+    : drawingSkillContext(prompt, options.drawingSkillRoots)
+  const taskPrompt = options.imageGeneration
+    ? `这是宿主视频工作流中的图片生成任务。使用官方内置 image_generation 工具，通过当前 Codex 登录生成真实位图。明确调用 $imagegen 技能并遵循内置工具模式。参考图作为风格与内容依据。内置工具可使用默认生成目录，完成后将最终图片复制到指定 outputPath。当前任务交付为该图片与结果 JSON，原工程作为只读参考。最终返回 JSON 对象 {"imagePath":"指定 outputPath 的绝对路径"}。宿主负责尺寸规范化、保存和人工审核。工具不可用时返回明确原因。\nimage_generation_target=${JSON.stringify(options.imageGeneration)}\n\n${prompt}`
+    : `这是宿主视频工作流中的非交互内容生成任务。只返回所要求的完整 JSON。可以读取用户明确指定的本地参考和绘图技能，按其视觉语言创作；不要启动浏览器、渲染器、预览服务或子代理，不修改文件，不执行后续工作流。宿主负责预览、画幅与动效校验，生成结果仍需用户审核。不要为工具不可用而等待或重复尝试。\n\n${drawingContext}\n\n${prompt}`
   if (taskPrompt.length > 200000)
     throw new Error(
       '加载绘画技能后的创作输入超过 200000 字符，请精简参考材料或使用单镜修改；原版本已保留',
@@ -268,9 +275,19 @@ export async function runAgent(
           'exec',
           '--skip-git-repo-check',
           '--sandbox',
-          'read-only',
+          options.imageGeneration ? 'workspace-write' : 'read-only',
           '--ephemeral',
           ...overrides,
+          ...(options.imageGeneration
+            ? [
+                '--enable',
+                'image_generation',
+                '-c',
+                'approval_policy="never"',
+                '--image',
+                options.imageGeneration.referencePath,
+              ]
+            : []),
           '--output-last-message',
           output,
           '-',

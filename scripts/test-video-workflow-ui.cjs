@@ -1814,8 +1814,9 @@ app.whenReady().then(async () => {
             await toggleAudio(0)
             await waitFor(
               '!document.querySelector(".workflow-audio-row[data-playing=true]")',
-              'pause clears highlight',
+              'pause stops playback',
             )
+            assert.ok(await evaluate('document.querySelector(".workflow-audio-row[data-current=true]")'))
             await evaluate('document.querySelector(".workflow-audio-row audio").focus()')
             window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Space' })
             window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Space' })
@@ -1826,16 +1827,17 @@ app.whenReady().then(async () => {
             await toggleAudio(1)
             await waitFor(
               'document.querySelectorAll(".workflow-audio-row")[1].dataset.playing==="true" && document.querySelectorAll(".workflow-audio-row")[0].dataset.playing==="false"',
-              'playing another segment clears previous highlight',
+              'playing another segment moves the current highlight',
             )
             assert.ok(await evaluate('document.querySelector(".workflow-audio-row audio").paused'))
             await evaluate(
               'document.querySelectorAll(".workflow-audio-row audio")[1].currentTime=document.querySelectorAll(".workflow-audio-row audio")[1].duration-0.05',
             )
             await waitFor(
-              '!document.querySelector(".workflow-audio-row[data-playing=true]")',
-              'ending clears highlight',
+              '(()=>{const rows=document.querySelectorAll(".workflow-audio-row");return rows[2]?rows[2].dataset.playing==="true"&&rows[2].dataset.current==="true":!document.querySelector(".workflow-audio-row[data-playing=true]")&&rows[1].dataset.current==="true"})()',
+              'ending advances to a ready segment or retains the final highlight',
             )
+            await evaluate('document.querySelectorAll(".workflow-audio-row audio").forEach(audio=>audio.pause())')
             window.setSize(1024, 900)
             await delay(100)
             await evaluate(

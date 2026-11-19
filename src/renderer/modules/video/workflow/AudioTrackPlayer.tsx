@@ -20,6 +20,7 @@ export function AudioTrackPlayer({
   regenerateDisabledReason,
   previousFeedback,
   correctionTargets,
+  current,
 }: {
   projectId: string
   track: AudioTrack
@@ -29,6 +30,7 @@ export function AudioTrackPlayer({
   regenerateDisabledReason?: string
   previousFeedback?: string
   correctionTargets?: { id: string; label: string; disabledReason?: string }[]
+  current: boolean
 }) {
   const [playing, setPlaying] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -59,7 +61,12 @@ export function AudioTrackPlayer({
     }
   }
   return (
-    <div className="workflow-audio-row" data-playing={playing}>
+    <div
+      className="workflow-audio-row"
+      data-playing={playing}
+      data-current={current}
+      aria-current={current ? 'true' : undefined}
+    >
       <div className="workflow-toolbar">
         <strong className="workflow-audio-title text-body-sm">
           {String(index + 1).padStart(2, '0')} · {title}
@@ -132,6 +139,7 @@ export function AudioTrackPlayer({
         src={mediaUrl(projectId, track.file)}
         className="workflow-audio-player w-full"
         data-playing={playing}
+        data-track-id={track.file.id}
         aria-label={`第 ${index + 1} 段试听`}
         onPlay={() => {
           setPlaying(true)

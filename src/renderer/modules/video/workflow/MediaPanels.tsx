@@ -39,6 +39,7 @@ import { productionRevision } from '@shared/video-production'
 import { mediaUrl, workflowCall } from './useWorkflow'
 import { ScenePreview } from './StoryboardEditor'
 import { AudioTrackPlayer } from './AudioTrackPlayer'
+import { AudioTrackSequence } from './AudioTrackSequence'
 import { PlatformPublishingPanel } from './BilibiliPublishingPanel'
 import { RenderActions } from './RenderActions'
 import { FinalRenderComparison } from './FinalRenderComparison'
@@ -326,14 +327,19 @@ export function AudioPanel({
       )}
       {tracks.length > 0 ? (
         <>
-          <section aria-label="逐镜试听">
-            <div className="workflow-section">
-              {tracks.map((track, index) => (
+          <AudioTrackSequence
+            key={`${project.id}:${viewingHistory ? versionId : (visiblePendingJob?.id ?? selectedVersion?.id ?? 'empty')}`}
+            tracks={tracks}
+            blockedIds={modifyingJobs.flatMap(audioJobTrackIds)}
+          >
+            {(currentId) =>
+              tracks.map((track, index) => (
                 <AudioTrackPlayer
                   key={track.file.id}
                   projectId={project.id}
                   track={track}
                   index={index}
+                  current={currentId === track.file.id}
                   onRegenerate={(feedback, fileIds) =>
                     onRegenerate(fileIds ?? [track.file.id], feedback)
                   }
@@ -345,9 +351,9 @@ export function AudioPanel({
                   regenerateDisabledReason={trackDisabledReason(track.file.id)}
                   title={trackTitle(track.sceneId)}
                 />
-              ))}
-            </div>
-          </section>
+              ))
+            }
+          </AudioTrackSequence>
         </>
       ) : (
         <div className="workflow-notice">

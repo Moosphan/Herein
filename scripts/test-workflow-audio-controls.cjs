@@ -229,6 +229,12 @@ app.whenReady().then(async () => {
     )
     project = await invoke('workflow:get', project.id)
     assert.ok(await evaluate('document.querySelector(".workflow-audio-row audio").controls'))
+    if (process.argv.includes('--playback-only')) {
+      await require('./verify-workflow-audio-playback.cjs')({ window, evaluate, waitFor, click, key, screenshot, invoke, project, root })
+      clearTimeout(testDeadline)
+      app.exit(0)
+      return
+    }
     await waitFor('document.querySelector("[data-audio-track-menu]")', 'segment menu')
     await evaluate('document.querySelector("[data-audio-track-menu]").focus()')
     window.focus()

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
+import { MOODBOARD_DEFAULT_CATEGORIES, type MoodboardCategory } from '@shared/moodboard'
+import { MoodboardCategoryEditor, MoodboardCategoryIcon } from './MoodboardCategoryEditor'
 
 interface MoodboardItem {
   id: number
@@ -15,15 +17,6 @@ interface MoodboardItem {
   created_at: string
 }
 
-const CATEGORIES = [
-  { value: 'open-source', label: 'Open Source', icon: 'code' },
-  { value: 'design', label: 'Design', icon: 'palette' },
-  { value: 'ai-tools', label: 'AI Tools', icon: 'smart_toy' },
-  { value: 'learning', label: 'Learning', icon: 'school' },
-  { value: 'productivity', label: 'Productivity', icon: 'productivity' },
-  { value: 'general', label: 'General', icon: 'bookmark' },
-]
-
 interface MoodboardModalProps {
   open: boolean
   onClose: () => void
@@ -33,6 +26,7 @@ export function MoodboardModal({ open, onClose }: MoodboardModalProps) {
   const { toast } = useToast()
   const [items, setItems] = useState<MoodboardItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [categories, setCategories] = useState<MoodboardCategory[]>([...MOODBOARD_DEFAULT_CATEGORIES])
   const [showAddForm, setShowAddForm] = useState(false)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -53,12 +47,16 @@ export function MoodboardModal({ open, onClose }: MoodboardModalProps) {
   const fetchItems = async () => {
     setLoading(true)
     try {
-      const res = await window.electronAPI.invoke('moodboard:getAll')
-      if (res.success) {
-        setItems(res.data || [])
-      }
+      const [res, categoryRes] = await Promise.all([
+        window.electronAPI.invoke('moodboard:getAll'),
+        window.electronAPI.invoke('moodboard:listCategoryDefinitions'),
+      ])
+      if (!res.success || !categoryRes.success)
+        throw new Error(res.error || categoryRes.error || 'Failed to load resources')
+      setItems(res.data || [])
+      setCategories(categoryRes.data)
     } catch (err) {
-      console.error('Failed to fetch moodboard items:', err)
+      toast({ title: (err as Error).message, variant: 'error' })
     } finally {
       setLoading(false)
     }
@@ -72,28 +70,30 @@ export function MoodboardModal({ open, onClose }: MoodboardModalProps) {
 
     try {
       if (editingId) {
-        await window.electronAPI.invoke('moodboard:update', editingId, {
+        const result = await window.electronAPI.invoke('moodboard:update', editingId, {
           title: formTitle.trim(),
           url: formUrl.trim(),
           description: formDescription.trim() || null,
           category: formCategory,
           rating: formRating,
         })
+        if (!result.success) throw new Error(result.error || 'Failed to save')
         toast({ title: 'Resource updated', variant: 'success' })
       } else {
-        await window.electronAPI.invoke('moodboard:create', {
+        const result = await window.electronAPI.invoke('moodboard:create', {
           title: formTitle.trim(),
           url: formUrl.trim(),
           description: formDescription.trim() || null,
           category: formCategory,
           rating: formRating,
         })
+        if (!result.success) throw new Error(result.error || 'Failed to save')
         toast({ title: 'Resource added', variant: 'success' })
       }
       resetForm()
       fetchItems()
-    } catch {
-      toast({ title: 'Failed to save', variant: 'error' })
+    } catch (failure) {
+      toast({ title: (failure as Error).message, variant: 'error' })
     }
   }
 
@@ -145,8 +145,8 @@ export function MoodboardModal({ open, onClose }: MoodboardModalProps) {
     window.electronAPI.openExternal(url)
   }
 
-  const getCategoryInfo = (cat: string) => {
-    return CATEGORIES.find(c => c.value === cat) || CATEGORIES[CATEGORIES.length - 1]
+  const getCategoryInfo = (cat: string): MoodboardCategory => {
+    return categories.find(c => c.value === cat) || { value: cat, label: cat || 'General', icon: 'bookmark' }
   }
 
   const filteredItems = activeCategory
@@ -183,6 +183,7 @@ export function MoodboardModal({ open, onClose }: MoodboardModalProps) {
             </button>
             <button
               onClick={onClose}
+              aria-label="关闭 Moodboards"
               className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
@@ -195,21 +196,23 @@ export function MoodboardModal({ open, onClose }: MoodboardModalProps) {
           <button
             onClick={() => setActiveCategory(null)}
             className={cn(
-              'px-3 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap',
+              'inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap',
               !activeCategory ? 'bg-primary text-on-primary' : 'border border-outline-variant text-on-surface-variant hover:bg-surface-container'
             )}
           >
             All
           </button>
-          {CATEGORIES.map(cat => (
+          {categories.map(cat => (
             <button
               key={cat.value}
               onClick={() => setActiveCategory(activeCategory === cat.value ? null : cat.value)}
+              aria-pressed={activeCategory === cat.value}
               className={cn(
-                'px-3 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap',
+                'inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap',
                 activeCategory === cat.value ? 'bg-primary text-on-primary' : 'border border-outline-variant text-on-surface-variant hover:bg-surface-container'
               )}
             >
+              <MoodboardCategoryIcon icon={cat.icon} className="w-3.5 h-3.5 shrink-0" />
               {cat.label}
             </button>
           ))}
@@ -293,6 +296,7 @@ export function MoodboardModal({ open, onClose }: MoodboardModalProps) {
         {showAddForm && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10 rounded-2xl" onClick={resetForm}>
             <div
+              data-moodboard-resource-form
               className="bg-surface-container-lowest w-full max-w-3xl max-h-[80vh] rounded-2xl shadow-2xl border border-outline-variant/30 flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
@@ -339,18 +343,26 @@ export function MoodboardModal({ open, onClose }: MoodboardModalProps) {
                 <div>
                   <label className="font-label-sm text-on-surface-variant">Category</label>
                   <div className="flex flex-wrap gap-xs mt-xs">
-                    {CATEGORIES.map(cat => (
+                    {categories.map(cat => (
                       <button
                         key={cat.value}
                         onClick={() => setFormCategory(cat.value)}
+                        aria-pressed={formCategory === cat.value}
                         className={cn(
-                          'px-3 py-1 rounded-full text-[11px] font-bold transition-all',
+                          'inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold transition-all',
                           formCategory === cat.value ? 'bg-primary text-on-primary' : 'border border-outline-variant text-on-surface-variant hover:bg-surface-container'
                         )}
                       >
+                        <MoodboardCategoryIcon icon={cat.icon} className="w-3.5 h-3.5 shrink-0" />
                         {cat.label}
                       </button>
                     ))}
+                    <MoodboardCategoryEditor
+                      onCreated={category => {
+                        setCategories(current => [...current.filter(item => item.value !== category.value), category])
+                        setFormCategory(category.value)
+                      }}
+                    />
                   </div>
                 </div>
                 <div>
@@ -414,15 +426,15 @@ function ResourceCard({
   onTogglePin: (id: number) => void
   onRating: (id: number, rating: number) => void
   onOpen: (url: string) => void
-  getCategoryInfo: (cat: string) => { label: string; icon: string }
+  getCategoryInfo: (cat: string) => MoodboardCategory
 }) {
   const catInfo = getCategoryInfo(item.category)
 
   return (
-    <div className="group p-sm rounded-lg border border-outline-variant/30 hover:border-outline-variant/60 transition-colors">
+    <div data-moodboard-resource={item.id} className="group p-sm rounded-lg border border-outline-variant/30 hover:border-outline-variant/60 transition-colors">
       <div className="flex items-start gap-sm">
         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-          <span className="material-symbols-outlined text-primary text-[16px]">{catInfo.icon}</span>
+          <MoodboardCategoryIcon icon={catInfo.icon} className="w-4 h-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-xs">

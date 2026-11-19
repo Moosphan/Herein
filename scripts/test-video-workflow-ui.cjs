@@ -242,6 +242,22 @@ app.whenReady().then(async () => {
       '想法与创作简报',
       '给技术团队介绍视频工作流。先解释为什么需要人工审核，再演示不同分镜布局。',
     )
+    const durationLabel = '目标时长（秒，最多 300 秒）'
+    const durationField = `document.getElementById([...document.querySelectorAll('label')].find(label=>label.textContent===${JSON.stringify(durationLabel)}).htmlFor)`
+    await fill(durationLabel, '')
+    assert.equal(await evaluate(`${durationField}.value`), '', 'Duration can be cleared without restoring zero')
+    for (const invalid of ['1e2', '-1', '1.5', 'abc', '180秒']) {
+      await fill(durationLabel, invalid)
+      assert.equal(await evaluate(`${durationField}.value`), '', `Reject non-digit input ${invalid}`)
+    }
+    await fill(durationLabel, '0')
+    assert.equal(await evaluate(`${durationField}.value`), '0')
+    await evaluate(`${durationField}.focus()`)
+    window.webContents.sendInputEvent({type:'keyDown',keyCode:'Backspace'})
+    window.webContents.sendInputEvent({type:'keyUp',keyCode:'Backspace'})
+    await delay(100)
+    assert.equal(await evaluate(`${durationField}.value`), '', 'Backspace removes the last zero')
+    await fill(durationLabel, '180')
     await fill('目标受众', '技术团队')
     await fill('参考资料', '项目文档与已核实的功能说明')
     await click('保存草稿')
@@ -250,6 +266,26 @@ app.whenReady().then(async () => {
       '[...document.querySelectorAll("button")].some(item=>item.textContent.trim()==="审核通过此版本"&&!item.disabled)',
       'saved brief',
     )
+    if (process.argv.includes('--duration-only')) {
+      const list = await evaluate("window.electronAPI.invoke('workflow:list',false)")
+      const detail = await evaluate(`window.electronAPI.invoke('workflow:get',${JSON.stringify(list.data[0].id)})`)
+      assert.equal(detail.data.stages.brief.payload.duration, 180)
+      for (const theme of ['light','dark']) {
+        await evaluate(`document.documentElement.classList.toggle('dark',${theme==='dark'})`)
+        for (const width of [1440,1024]) {
+          window.setSize(width,1000)
+          await evaluate(`${durationField}.scrollIntoView({block:'center'})`)
+          await screenshot(`brief-duration-${theme}-${width}.png`)
+        }
+      }
+      window.webContents.setZoomFactor(2)
+      await evaluate(`${durationField}.scrollIntoView({block:'center'})`)
+      await screenshot('brief-duration-200percent.png')
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'))
+      console.log('Duration clear, digits-only input, keyboard, saved number, themes and zoom passed')
+      app.exit(0)
+      return
+    }
     await approve()
     await click('继续下一步')
     await waitFor(

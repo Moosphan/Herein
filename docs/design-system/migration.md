@@ -358,3 +358,14 @@
 ### 2026-11-16 · #19 发布记录收纳
 
 用户截图要求默认显示最新投稿，其他尝试以日志呈现。PlatformPublishingPanel 复用 VIDEO-WORKFLOW-001 的现有 Button、工作流主题与原生 details 日志样式，最新记录沿用原信息顺序及操作，旧记录收进可展开的紧凑日志摘要。使用服务已有创建倒序和持久记录，详情保留原操作。责任为视频工作流维护者，退出里程碑为该模块 HeroUI 3.2.6 生产迁移。验证见 `video-workflow-bilibili-update-verification.md`。
+
+
+## MOODBOARD-CATEGORIES-001 · 2026-11-16 · #21
+
+用户明确批准 Moodboards 本轮 React 18 / Tailwind 3 局部兼容例外。范围为 MoodboardModal、MoodboardCategoryEditor、类别筛选与资源卡片图标，沿用当前项目主题、已有 Button 和输入字段外观，图标使用已安装 Heroicons 2.2.0 outline。资源字段、评分、卡片信息顺序和动作位置沿用既有合同，新类别入口位于 Category 选项旁，名称及图标在资源表单内展开。责任为 Writing 模块维护者，退出里程碑为 Moodboards HeroUI 3.2.6 生产迁移。验收见 `moodboard-categories-verification.md`。
+
+## 视频目标时长输入 · 2026-11-19
+
+用户报告清空时长后被强制填回 0。StageWorkspace 的目标时长保留编辑字符串，允许删除最后一个 0，只接收数字字符，提交继续使用既有数字类型与范围校验。复用 VIDEO-WORKFLOW-001 的 VoiceInput、主题、信息顺序、宽度及动作位置；责任为视频工作流维护者，退出里程碑仍为该模块 HeroUI 3.2.6 生产迁移。
+
+现有 Electron 工作流测试增加 `--duration-only`，先复现清空后变回 0，再验证清空、实际 Backspace、非数字拒绝、保存为数字，以及明暗主题、1440/1024 和 200% 缩放。修复后通过，截图位于 `/var/folders/tp/lp03pbbn6wb275zsvn3lfrq00000gn/T/video-workflow-ui-OFKGLy`，已检查浅色 1440 与深色 1024。应用构建、设计检查与设计构建通过，修改组件 ESLint 无错误；全仓类型检查仍有既存错误，未包含本次组件诊断。

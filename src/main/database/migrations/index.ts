@@ -1055,6 +1055,20 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 41,
+    name: '041_moodboard_categories',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE moodboard_categories (
+          value TEXT PRIMARY KEY,
+          label TEXT NOT NULL,
+          normalized_name TEXT NOT NULL UNIQUE,
+          icon TEXT NOT NULL
+        )
+      `)
+    },
+  },
 ]
 
 export function runMigrations(db: Database.Database): void {

@@ -31,6 +31,22 @@ export function registerMoodboardIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle('moodboard:listCategoryDefinitions', () => {
+    try {
+      return { success: true, data: getRepo().listCategoryDefinitions() }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('moodboard:addCategory', (_event, input: unknown) => {
+    try {
+      return { success: true, data: getRepo().addCategory(input) }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   ipcMain.handle('moodboard:create', (_event, data) => {
     try {
       const id = getRepo().create(data)

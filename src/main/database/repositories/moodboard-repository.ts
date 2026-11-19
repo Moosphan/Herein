@@ -1,4 +1,10 @@
 import type Database from 'better-sqlite3'
+import { randomUUID } from 'node:crypto'
+import {
+  MOODBOARD_DEFAULT_CATEGORIES,
+  MOODBOARD_ICONS,
+  type MoodboardCategory,
+} from '../../../shared/moodboard'
 import { BaseRepository } from './base'
 
 export interface MoodboardItemRow {
@@ -37,7 +43,54 @@ export class MoodboardRepository extends BaseRepository<MoodboardItemRow> {
     const rows = this.all<{ category: string }>(
       'SELECT DISTINCT category FROM moodboard_items ORDER BY category',
     )
-    return rows.map(r => r.category)
+    return rows.map((r) => r.category)
+  }
+
+  listCategoryDefinitions(): MoodboardCategory[] {
+    const categories = [
+      ...MOODBOARD_DEFAULT_CATEGORIES.map((category) => ({ ...category })),
+      ...this.all<MoodboardCategory>(
+        'SELECT value, label, icon FROM moodboard_categories ORDER BY rowid',
+      ),
+    ]
+    const known = new Set(categories.map((category) => category.value))
+    for (const value of this.getCategories()) {
+      if (typeof value === 'string' && value && !known.has(value))
+        categories.push({ value, label: value, icon: 'bookmark' })
+    }
+    return categories
+  }
+
+  addCategory(input: unknown): MoodboardCategory {
+    if (
+      !input ||
+      typeof input !== 'object' ||
+      !('label' in input) ||
+      typeof input.label !== 'string' ||
+      !input.label.trim()
+    )
+      throw new Error('请填写类别名称')
+    const icon = MOODBOARD_ICONS.find((icon) => 'icon' in input && icon.value === input.icon)?.value
+    if (!icon) throw new Error('请选择有效图标')
+    const label = input.label.trim()
+    const normalized = label.normalize('NFKC').toLowerCase()
+    return this.db.transaction(() => {
+      const exists = this.listCategoryDefinitions().some((category) =>
+        [category.label, category.value].some(
+          (value) => value.trim().normalize('NFKC').toLowerCase() === normalized,
+        ),
+      )
+      if (exists) throw new Error('该类别已存在，请直接选择已有类别')
+      const category = { value: `custom-${randomUUID()}`, label, icon }
+      this.run(
+        'INSERT INTO moodboard_categories (value, label, normalized_name, icon) VALUES (?, ?, ?, ?)',
+        category.value,
+        label,
+        normalized,
+        icon,
+      )
+      return category
+    })()
   }
 
   create(data: {
@@ -63,7 +116,10 @@ export class MoodboardRepository extends BaseRepository<MoodboardItemRow> {
     return Number(result.lastInsertRowid)
   }
 
-  update(id: number, data: Partial<Omit<MoodboardItemRow, 'id' | 'created_at' | 'updated_at'>>): boolean {
+  update(
+    id: number,
+    data: Partial<Omit<MoodboardItemRow, 'id' | 'created_at' | 'updated_at'>>,
+  ): boolean {
     const fields: string[] = []
     const values: unknown[] = []
     for (const [key, value] of Object.entries(data)) {
@@ -75,7 +131,10 @@ export class MoodboardRepository extends BaseRepository<MoodboardItemRow> {
     if (fields.length === 0) return false
     fields.push('updated_at = CURRENT_TIMESTAMP')
     values.push(id)
-    const result = this.run(`UPDATE moodboard_items SET ${fields.join(', ')} WHERE id = ?`, ...values)
+    const result = this.run(
+      `UPDATE moodboard_items SET ${fields.join(', ')} WHERE id = ?`,
+      ...values,
+    )
     return result.changes > 0
   }
 

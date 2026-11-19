@@ -53,6 +53,35 @@ const stageDescriptions: Record<VideoStage, string> = {
   render: '使用冻结粗剪工程，按原画幅输出最终视频。',
   publish: '分别确认平台信息，导出发布包并记录发布结果。',
 }
+
+function BriefDurationInput({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (value: number) => void
+}) {
+  const [input, setInput] = useState(String(value))
+  useEffect(() => {
+    setInput((current) => (Number(current) === value ? current : String(value)))
+  }, [value])
+  return (
+    <VoiceInput
+      label="目标时长（秒，最多 300 秒）"
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={input}
+      onChange={(event) => {
+        const next = event.target.value
+        if (!/^\d*$/.test(next)) return
+        setInput(next)
+        onChange(Number(next))
+      }}
+    />
+  )
+}
+
 export function StageWorkspace({
   project,
   stage,
@@ -511,16 +540,12 @@ export function StageWorkspace({
                           })
                         }
                       />
-                      <VoiceInput
-                        label="目标时长（秒，最多 300 秒）"
-                        type="number"
-                        min={10}
-                        max={300}
+                      <BriefDurationInput
                         value={(draft.payload as StagePayloads['brief']).duration}
-                        onChange={(event) =>
+                        onChange={(duration) =>
                           draft.update({
                             ...(draft.payload as StagePayloads['brief']),
-                            duration: Number(event.target.value),
+                            duration,
                           })
                         }
                       />

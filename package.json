@@ -75,7 +75,9 @@
     "test:chatgpt-usage-refresh": "node scripts/run-chatgpt-usage-refresh-test.cjs",
     "test:codex-session-usage": "node scripts/run-codex-session-usage-test.cjs",
     "test:reset-radar": "tsx scripts/test-reset-radar.ts",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "test:moodboard": "electron scripts/run-moodboard-test.cjs",
+    "test:moodboard:ui": "pnpm build && electron scripts/test-moodboard-ui.cjs"
   },
   "dependencies": {
     "typescript": "^5.7.2",
